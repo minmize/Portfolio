@@ -133,7 +133,7 @@
 
     /* =================== CENTRAL PANEL (ornate box) =================== */
     .panel {
-      position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+      position: absolute; left: 50%; top: 54%; transform: translate(-50%, -50%);
       z-index: 11; width: min(540px, 90vw); height: min(72vh, 640px);
       visibility: hidden; opacity: 0;
       transition: opacity 300ms var(--ease), visibility 300ms var(--ease);
@@ -313,6 +313,12 @@
       <button class="np-name" id="npName" type="button" aria-label="Return to the introduction">Sasha Guriev</button>
       <button class="np-index" id="npIndex" type="button">Index</button>
     </div>
+
+    <section class="greeting" id="greeting" aria-label="Welcome">
+      <h2 class="greeting__hi">Welcome to the chart.</h2>
+      <p class="greeting__line">I'm Sasha Guriev — an applied-AI builder. Every star here is a project, shipped end to end. Click one to open it, or click my name for the introduction.</p>
+      <p class="greeting__cue">Click a star to begin</p>
+    </section>
 
     <section class="panel" id="panel" role="region" aria-label="Profile" aria-live="polite">
       <svg class="panel__frame" id="frame" aria-hidden="true"></svg>
@@ -650,6 +656,7 @@
         panelContent = document.getElementById("panelContent"),
         panelViewport = document.getElementById("panelViewport"),
         beam = document.getElementById("beam"),
+        greeting = document.getElementById("greeting"),
         stage = document.getElementById("stage");
     var mode = "home", aboutIndex = 0;
 
@@ -664,6 +671,7 @@
       panelContent.style.setProperty("--bx", d.nx.toFixed(3));
       panelContent.style.setProperty("--by", d.ny.toFixed(3));
       beam.style.setProperty("--ang", d.ang.toFixed(1) + "deg");
+      greeting.classList.add("is-hidden");
       panel.classList.add("is-open");
       panelViewport.scrollTop = 0;
       panelContent.innerHTML = html;
@@ -709,17 +717,17 @@
       else if (next) { e.stopPropagation(); openAbout(aboutIndex + 1, next); }
     });
 
-    /* ===================== home = the About landing (name · empty sky · Esc) ===================== */
-    function goHome() { if (mode === "about" && aboutIndex === 0 && panel.classList.contains("is-open")) return; openAbout(0, null); }
-    document.getElementById("npName").addEventListener("click", function (e) { e.stopPropagation(); goHome(); });
+    /* ===================== home = the greeting (rest) · name opens the About intro ===================== */
+    function showGreeting() { mode = "home"; panel.classList.remove("is-open"); greeting.classList.remove("is-hidden"); }
+    document.getElementById("npName").addEventListener("click", function (e) { e.stopPropagation(); openAbout(0, null); });
     stage.addEventListener("click", function (e) {
       if (e.target.closest(".star-node") || e.target.closest(".moon-node") || e.target.closest(".panel") || e.target.closest(".nameplate")) return;
-      goHome();
+      showGreeting();
     });
     document.addEventListener("keydown", function (e) {
       if (e.key !== "Escape") return;
       if (document.getElementById("indexscreen").classList.contains("is-open")) closeIndex();
-      else goHome();
+      else if (panel.classList.contains("is-open")) showGreeting();
     });
 
     /* ===================== mouse parallax ("rolling" living sky) ===================== */
@@ -812,7 +820,7 @@
 
     /* ===================== init ===================== */
     layoutSky(); buildIndex(); buildCardFrames();
-    openAbout(0, null);                 // the About box is the landing page
+    showGreeting();                     // the greeting is the landing; the box opens on click
     requestAnimationFrame(buildFrame);
     setTimeout(buildFrame, 60);         // re-measure once fonts/layout settle
     var wasMob = window.matchMedia("(max-width: 760px)").matches;
