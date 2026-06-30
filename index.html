@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Sasha Guriev · Applied-AI builder</title>
+  <meta name="description" content="The portfolio of Sasha Guriev (minmize): Android apps, machine-learning pipelines, and computer-vision tools — explored as a night sky." />
+  <meta name="author" content="Sasha Guriev" />
+  <meta name="theme-color" content="#050507" />
+  <meta name="color-scheme" content="dark" />
+
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Sasha Guriev — Applied-AI builder" />
+  <meta property="og:description" content="Android apps, ML pipelines, and computer-vision tools, explored as a night sky." />
+  <meta property="og:image" content="og-image.svg" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Sasha Guriev — Applied-AI builder" />
+  <meta name="twitter:image" content="og-image.svg" />
+
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='4' fill='%23050507'/%3E%3Cpath d='M20.5 6a10 10 0 1 0 0 20 8 8 0 0 1 0-20z' fill='%23f3f4f6'/%3E%3C/svg%3E" />
+
+  <style>
+    :root {
+      --s-1: 4px;  --s-2: 8px;  --s-3: 12px; --s-4: 16px; --s-5: 24px;
+      --s-6: 32px; --s-7: 48px; --s-8: 64px; --s-9: 96px;
+
+      --r-sm: 2px; --r-md: 2px; --r-lg: 3px;
+
+      --bg:            #050507;
+      --bg-center:     #0b0c10;
+      --surface:       #0c0d11;
+      --surface-2:     #14151b;
+      --border:        rgba(255,255,255,0.10);
+      --border-strong: rgba(255,255,255,0.24);
+      --text:          #f3f4f6;
+      --muted:         #969aa3;
+      --faint:         rgba(243,244,246,0.40);
+      --star:          #ffffff;
+      --green:         #9aa77f;   /* the only colour besides white — name + snake */
+      --grey-link:     #6f747e;
+
+      --shadow-lg: 0 30px 80px -34px rgba(0,0,0,0.9);
+
+      --font: 'Times New Roman', Times, Georgia, serif;
+      --t-display: clamp(2.25rem, 5vw, 3.5rem);
+      --t-h1:      clamp(1.75rem, 3.4vw, 2.5rem);
+      --t-h2:      clamp(1.4rem, 2.6vw, 1.85rem);
+      --t-body:    1rem;
+      --t-sm:      0.875rem;
+      --t-xs:      0.75rem;
+
+      --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+      --dur:  220ms;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0; overflow: hidden;
+      font-family: var(--font); font-size: var(--t-body); line-height: 1.65;
+      color: var(--text); background: var(--bg);
+      -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
+    }
+    h1,h2,h3,p,ul { margin: 0; }
+    ul { list-style: none; padding: 0; }
+    .defs { position: absolute; width: 0; height: 0; }
+    a { color: inherit; text-decoration: none; }
+    button { font: inherit; color: inherit; background: none; border: none; cursor: pointer; }
+    svg { display: block; }
+
+    body::before {
+      content: ""; position: fixed; inset: 0; z-index: -2;
+      background:
+        radial-gradient(125% 95% at 50% 32%, var(--bg-center) 0%, var(--bg) 60%),
+        radial-gradient(80% 50% at 80% 96%, rgba(255,255,255,0.045) 0%, transparent 62%);
+    }
+    .grain {
+      position: fixed; inset: 0; z-index: 4; pointer-events: none;
+      opacity: 0.06; mix-blend-mode: screen;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    }
+
+    .skip { position: absolute; left: var(--s-4); top: -64px; z-index: 60; background: var(--surface); border: 1px solid var(--border-strong); padding: var(--s-2) var(--s-4); border-radius: var(--r-sm); transition: top var(--dur) var(--ease); }
+    .skip:focus { top: var(--s-4); }
+
+    /* =================== STAGE (fixed full-screen hero) =================== */
+    .stage { position: fixed; inset: 0; z-index: 1; overflow: hidden; }
+    .sky { position: absolute; inset: 0; width: 100%; height: 100%; }
+    .sky-layer { will-change: transform; }
+
+    /* no focus boxes on celestial elements — focus shows via glow/scale */
+    .star-node, .moon-node { outline: none; cursor: pointer; }
+    .star-node .hit, .moon-node .moon-hit { fill: transparent; }
+    .star-node .glow { opacity: 0.36; transition: opacity var(--dur) var(--ease); }
+    .star-node .cross { fill: var(--star); transition: transform var(--dur) var(--ease); transform-box: fill-box; transform-origin: center; }
+    .star-node .core { fill: var(--star); }
+    .star-node:hover .glow, .star-node:focus-visible .glow { opacity: 0.95; }
+    .star-node:hover .cross, .star-node:focus-visible .cross { transform: scale(1.34); }
+    .amb-spark, .amb { pointer-events: none; }
+    .moon-halo { transition: filter var(--dur) var(--ease); }
+    .moon-node:hover .moon-halo, .moon-node:focus-visible .moon-halo { filter: brightness(1.08); }
+    .snake { pointer-events: none; }
+
+    @keyframes twinkle { 0%,100% { opacity: var(--tw-min,.3); } 50% { opacity: var(--tw-max,.9); } }
+    @keyframes moonpulse { 0%,100% { opacity: .5; } 50% { opacity: .8; } }
+
+    /* =================== NAMEPLATE (top-left) =================== */
+    .nameplate { position: absolute; top: var(--s-7); left: var(--s-7); z-index: 12; display: flex; flex-direction: column; align-items: flex-start; gap: var(--s-3); }
+    .np-name { font-size: clamp(1.5rem, 2.4vw, 1.95rem); font-weight: 400; letter-spacing: 0.01em; color: var(--green); padding: 0; line-height: 1.04; }
+    .np-name:hover { opacity: 0.85; }
+    .np-index {
+      display: inline-flex; align-items: baseline; gap: var(--s-2);
+      font-size: clamp(1rem, 1.6vw, 1.25rem); letter-spacing: 0.16em; text-transform: uppercase;
+      color: var(--grey-link); padding: 2px 0;
+      transition: color var(--dur) var(--ease);
+    }
+    .np-index::before { content: "—"; }
+    .np-index:hover { color: var(--text); }
+    .np-name:focus-visible, .np-index:focus-visible { outline: 1px solid var(--border-strong); outline-offset: 4px; }
+
+    /* =================== GREETING (lower middle) =================== */
+    .greeting {
+      position: absolute; left: 50%; top: 60%; transform: translate(-50%, -50%);
+      z-index: 10; width: min(34rem, 84vw); text-align: center; pointer-events: none;
+      transition: opacity 360ms var(--ease), transform 360ms var(--ease);
+    }
+    .greeting.is-hidden { opacity: 0; transform: translate(-50%, -42%); pointer-events: none; }
+    .greeting__hi { font-size: var(--t-display); font-weight: 300; letter-spacing: -0.03em; line-height: 1.05; }
+    .greeting__line { margin-top: var(--s-4); color: var(--muted); font-size: 1.0625rem; line-height: 1.6; }
+    .greeting__cue { margin-top: var(--s-6); font-size: var(--t-xs); letter-spacing: 0.22em; text-transform: uppercase; color: var(--faint); transition: opacity var(--dur) var(--ease); }
+
+    /* =================== CENTRAL PANEL (ornate box) =================== */
+    .panel {
+      position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+      z-index: 11; width: min(540px, 90vw); height: min(72vh, 640px);
+      visibility: hidden; opacity: 0;
+      transition: opacity 300ms var(--ease), visibility 300ms var(--ease);
+    }
+    .panel.is-open { visibility: visible; opacity: 1; }
+    .panel__frame { position: absolute; inset: -14px; width: calc(100% + 28px); height: calc(100% + 28px); overflow: visible; pointer-events: none; z-index: 2; }
+    .panel__beam { position: absolute; inset: 0; overflow: hidden; pointer-events: none; opacity: 0; z-index: 3; }
+    .panel__beam::before {
+      content: ""; position: absolute; top: -40%; left: 50%; width: 16%; height: 180%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.7), transparent);
+      filter: blur(9px); transform: translateX(-300%) rotate(var(--ang, 0deg));
+    }
+    .panel__beam.sweep { animation: beamShow 0.5s var(--ease); }
+    .panel__beam.sweep::before { animation: beamMove 0.5s var(--ease); }
+    @keyframes beamShow { 0%{opacity:0;} 22%{opacity:1;} 100%{opacity:0;} }
+    @keyframes beamMove { 0%{transform: translateX(-300%) rotate(var(--ang,0deg));} 100%{transform: translateX(360%) rotate(var(--ang,0deg));} }
+
+    .panel__viewport {
+      position: absolute; inset: 0; z-index: 1; overflow-y: auto; overflow-x: hidden;
+      background: linear-gradient(180deg, rgba(12,13,17,0.72), rgba(8,9,12,0.78));
+      -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px);
+      padding: var(--s-7) var(--s-6);
+      scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.18) transparent;
+    }
+    .panel__viewport::-webkit-scrollbar { width: 6px; }
+    .panel__viewport::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.16); border-radius: 99px; }
+    .panel__content.bleed-in { animation: bleedIn 0.5s var(--ease) both; }
+    @keyframes bleedIn {
+      0%   { opacity: 0; transform: translate(calc(var(--bx,0)*46px), calc(var(--by,0)*46px)); filter: blur(7px); }
+      60%  { opacity: 1; filter: blur(0); }
+      100% { opacity: 1; transform: none; filter: none; }
+    }
+
+    /* ---- content typography (shared by about + project) ---- */
+    .c-kicker { display: flex; align-items: center; gap: var(--s-3); font-size: var(--t-xs); letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted); }
+    .c-step { color: var(--faint); font-variant-numeric: tabular-nums; }
+    .c-title { font-size: var(--t-h2); font-weight: 300; letter-spacing: -0.02em; line-height: 1.1; margin-top: var(--s-3); }
+    .c-tag { margin-top: var(--s-3); color: var(--text); font-size: 1.0625rem; }
+    .c-text { margin-top: var(--s-4); color: var(--muted); }
+    .c-text + .c-text { margin-top: var(--s-3); }
+    .c-h { font-size: var(--t-xs); letter-spacing: 0.2em; text-transform: uppercase; color: var(--faint); margin: var(--s-6) 0 var(--s-4); }
+    .c-list { display: flex; flex-direction: column; gap: var(--s-4); }
+    .c-list li { display: grid; grid-template-columns: 28px 1fr; gap: var(--s-3); color: var(--muted); }
+    .c-list .mk { color: var(--faint); font-size: var(--t-xs); letter-spacing: 0.1em; font-variant-numeric: tabular-nums; line-height: 1.9; }
+    .c-list b { color: var(--text); font-weight: 500; }
+    .skillset { margin-top: var(--s-5); display: flex; flex-direction: column; gap: var(--s-4); }
+    .skillrow__label { font-size: var(--t-xs); letter-spacing: 0.14em; text-transform: uppercase; color: var(--faint); margin-bottom: var(--s-2); }
+    .chips { display: flex; flex-wrap: wrap; gap: var(--s-2); }
+    .chip { font-size: var(--t-sm); color: var(--text); border: 1px solid var(--border); background: rgba(255,255,255,0.02); padding: var(--s-1) var(--s-3); border-radius: var(--r-sm); }
+    .contactgrid { margin-top: var(--s-5); display: flex; flex-direction: column; gap: var(--s-3); }
+    .contactrow { display: flex; align-items: center; justify-content: space-between; gap: var(--s-4); padding: var(--s-4); border: 1px solid var(--border); border-radius: var(--r-md); transition: border-color var(--dur) var(--ease), background var(--dur) var(--ease); }
+    .contactrow:hover { border-color: var(--border-strong); background: var(--surface-2); }
+    .contactrow__k { font-size: var(--t-xs); letter-spacing: 0.14em; text-transform: uppercase; color: var(--faint); }
+    .c-foot { margin-top: var(--s-6); padding-top: var(--s-5); border-top: 1px solid var(--border); display: flex; flex-wrap: wrap; gap: var(--s-4); align-items: center; justify-content: space-between; }
+    .c-path { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: var(--t-xs); color: var(--faint); }
+    .btn { display: inline-flex; align-items: center; gap: var(--s-2); padding: var(--s-3) var(--s-5); border: 1px solid var(--border-strong); border-radius: var(--r-md); font-size: var(--t-sm); font-weight: 500; transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease); }
+    .btn:hover { background: rgba(255,255,255,0.06); }
+    .cyc { margin-top: var(--s-6); padding-top: var(--s-5); border-top: 1px solid var(--border); display: flex; align-items: center; gap: var(--s-4); }
+    .cyc__seg { position: relative; display: flex; gap: var(--s-2); flex: 1; }
+    .cyc__seg span { height: 2px; width: 100%; background: rgba(255,255,255,0.2); transition: background var(--dur) var(--ease); }
+    .cyc__seg span.on { background: var(--text); }
+    .cyc__star { position: absolute; left: 50%; top: 50%; width: 30px; height: 30px; transform: translate(-50%, -50%); overflow: visible; pointer-events: none; }
+    .cyc__arrow { width: 32px; height: 32px; border: 1px solid var(--border); border-radius: var(--r-sm); color: var(--muted); display: grid; place-items: center; transition: background var(--dur) var(--ease), color var(--dur) var(--ease), border-color var(--dur) var(--ease); }
+    .cyc__arrow:hover { background: rgba(255,255,255,0.05); color: var(--text); border-color: var(--border-strong); }
+
+    /* =================== INDEX SCREEN (separate inertia scroll) =================== */
+    .indexscreen { position: fixed; inset: 0; z-index: 40; background: var(--bg); visibility: hidden; opacity: 0; transition: opacity 360ms var(--ease), visibility 360ms var(--ease); }
+    .indexscreen.is-open { visibility: visible; opacity: 1; }
+    .indexscreen__bar { position: absolute; top: 0; left: 0; right: 0; z-index: 2; display: flex; align-items: center; justify-content: space-between; padding: var(--s-6) var(--s-7) var(--s-8); pointer-events: none; background: linear-gradient(180deg, var(--bg) 0%, var(--bg) 46%, rgba(5,5,7,0) 100%); }
+    .indexscreen__bar > * { pointer-events: auto; }
+    .indexscreen__brand { font-size: var(--t-xs); letter-spacing: 0.22em; text-transform: uppercase; color: var(--muted); }
+    .indexscreen__close { display: inline-flex; align-items: center; gap: var(--s-2); font-size: var(--t-xs); letter-spacing: 0.2em; text-transform: uppercase; color: var(--grey-link); }
+    .indexscreen__close:hover { color: var(--text); }
+    .indexscreen__view { position: absolute; inset: 0; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.18) transparent; }
+    .indexscreen__view::-webkit-scrollbar { width: 8px; }
+    .indexscreen__view::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.16); border-radius: 99px; }
+    .indexscreen__track { padding: 140px var(--s-7) var(--s-9); max-width: 1240px; margin: 0 auto; }
+    .ix-head { max-width: 680px; margin-bottom: var(--s-9); }
+    .ix-eyebrow { font-size: var(--t-xs); letter-spacing: 0.28em; text-transform: uppercase; color: var(--muted); }
+    .ix-title { font-size: var(--t-h1); font-weight: 300; letter-spacing: -0.025em; line-height: 1.08; margin-top: var(--s-4); }
+    .ix-sub { margin-top: var(--s-4); color: var(--muted); max-width: 54ch; }
+    .group { margin-bottom: var(--s-8); }
+    .group__head { display: flex; align-items: baseline; gap: var(--s-4); flex-wrap: wrap; padding-bottom: var(--s-4); margin-bottom: var(--s-5); border-bottom: 1px solid var(--border); }
+    .group__name { font-size: 1.0625rem; font-weight: 500; }
+    .group__sub { font-size: var(--t-xs); letter-spacing: 0.16em; text-transform: uppercase; color: var(--faint); }
+    .group__count { margin-left: auto; font-size: var(--t-xs); letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); border: 1px solid var(--border); border-radius: var(--r-sm); padding: 3px var(--s-3); }
+    .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: var(--s-6); }
+    .card { position: relative; overflow: visible; text-align: left; width: 100%; background: var(--surface); border: 1px solid rgba(255,255,255,0.05); border-radius: var(--r-lg); padding: var(--s-6) var(--s-5); display: flex; flex-direction: column; gap: var(--s-3); transition: background var(--dur) var(--ease); }
+    .card:hover { background: var(--surface-2); }
+    .card__frame { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; z-index: 0; opacity: 0.85; transition: opacity var(--dur) var(--ease); }
+    .card:hover .card__frame { opacity: 1; }
+    .card__top, .card__tag, .card__meta { position: relative; z-index: 1; }
+    .card__top { display: flex; align-items: baseline; gap: var(--s-3); }
+    .card__idx { font-size: var(--t-xs); letter-spacing: 0.1em; color: var(--faint); font-variant-numeric: tabular-nums; }
+    .card__name { font-size: 1.0625rem; font-weight: 500; letter-spacing: -0.005em; }
+    .card__tag { color: var(--muted); font-size: var(--t-sm); }
+    .card__meta { display: flex; align-items: center; justify-content: space-between; gap: var(--s-2); font-size: var(--t-xs); color: var(--faint); margin-top: var(--s-2); padding-top: var(--s-3); border-top: 1px solid var(--border); }
+    .card__cue { color: var(--muted); transition: color var(--dur) var(--ease); }
+    .card:hover .card__cue { color: var(--text); }
+
+    /* =================== RESPONSIVE =================== */
+    @media (max-width: 760px) {
+      .nameplate { top: var(--s-5); left: var(--s-5); }
+      .panel { width: 92vw; height: 76vh; }
+      .panel__viewport { padding: var(--s-6) var(--s-5); }
+      .indexscreen__bar { padding: var(--s-5); }
+      .indexscreen__track { padding: 110px var(--s-5) var(--s-8); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <a class="skip" href="#stage">Skip to content</a>
+  <div class="grain" aria-hidden="true"></div>
+
+  <!-- shared charcoal/sketch filter + star glow, referenced by the box & card frames -->
+  <svg class="defs" width="0" height="0" aria-hidden="true" focusable="false"><defs>
+    <filter id="rough" x="-25%" y="-25%" width="150%" height="150%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.016 0.024" numOctaves="2" seed="4" result="n" />
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="5.5" xChannelSelector="R" yChannelSelector="G" />
+    </filter>
+    <filter id="roughSoft" x="-25%" y="-25%" width="150%" height="150%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.02 0.03" numOctaves="2" seed="9" result="n" />
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="3" xChannelSelector="R" yChannelSelector="G" />
+    </filter>
+    <radialGradient id="gGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="rgba(255,255,255,0.62)" />
+      <stop offset="34%" stop-color="rgba(255,255,255,0.14)" />
+      <stop offset="100%" stop-color="rgba(255,255,255,0)" />
+    </radialGradient>
+  </defs></svg>
+
+  <main class="stage" id="stage">
+    <svg class="sky" id="sky" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice" role="img" aria-label="A night-sky star chart. The moon opens an introduction; each star opens a project.">
+      <defs>
+        <radialGradient id="moonGlow" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="rgba(255,255,255,0.30)" />
+          <stop offset="42%" stop-color="rgba(255,255,255,0.08)" />
+          <stop offset="100%" stop-color="rgba(255,255,255,0)" />
+        </radialGradient>
+        <radialGradient id="moonFace" cx="68%" cy="36%" r="80%">
+          <stop offset="0%" stop-color="#ffffff" />
+          <stop offset="46%" stop-color="#d6d8dc" />
+          <stop offset="80%" stop-color="#86898f" />
+          <stop offset="100%" stop-color="#3a3d44" />
+        </radialGradient>
+        <radialGradient id="moonShade" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#101218" />
+          <stop offset="100%" stop-color="#070809" />
+        </radialGradient>
+        <radialGradient id="starGlow" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="rgba(255,255,255,0.55)" />
+          <stop offset="30%" stop-color="rgba(255,255,255,0.13)" />
+          <stop offset="100%" stop-color="rgba(255,255,255,0)" />
+        </radialGradient>
+        <filter id="moonGrain" x="-20%" y="-20%" width="140%" height="140%">
+          <feTurbulence type="fractalNoise" baseFrequency="0.6" numOctaves="2" seed="11" stitchTiles="stitch" result="t" />
+          <feColorMatrix in="t" type="matrix" values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 2.6 -1.1" />
+        </filter>
+        <filter id="moonMottle" x="-20%" y="-20%" width="140%" height="140%">
+          <feTurbulence type="fractalNoise" baseFrequency="0.045" numOctaves="3" seed="6" stitchTiles="stitch" result="t" />
+          <feColorMatrix in="t" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.5 -0.12" />
+        </filter>
+        <filter id="soft" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="0.7" /></filter>
+      </defs>
+
+      <g class="sky-layer" id="ambient" aria-hidden="true"></g>
+      <g class="sky-layer" id="constellations"></g>
+      <g class="sky-layer" id="moon"></g>
+      <g class="sky-layer" id="snake" aria-hidden="true"></g>
+    </svg>
+
+    <div class="nameplate">
+      <button class="np-name" id="npName" type="button" aria-label="Return to the introduction">Sasha Guriev</button>
+      <button class="np-index" id="npIndex" type="button">Index</button>
+    </div>
+
+    <section class="panel" id="panel" role="region" aria-label="Profile" aria-live="polite">
+      <svg class="panel__frame" id="frame" aria-hidden="true"></svg>
+      <div class="panel__beam" id="beam" aria-hidden="true"></div>
+      <div class="panel__viewport" id="panelViewport">
+        <div class="panel__content" id="panelContent"></div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ===================== INDEX SCREEN ===================== -->
+  <section class="indexscreen" id="indexscreen" aria-label="Project index" aria-hidden="true">
+    <div class="indexscreen__bar">
+      <span class="indexscreen__brand">Sasha Guriev — Index</span>
+      <button class="indexscreen__close" id="indexClose" type="button">Close ✕</button>
+    </div>
+    <div class="indexscreen__view" id="indexView">
+      <div class="indexscreen__track" id="indexTrack">
+        <div class="ix-head">
+          <p class="ix-eyebrow">Index</p>
+          <h2 class="ix-title">Every project, listed plainly</h2>
+          <p class="ix-sub">The star chart is the scenic route. Here is the same work grouped by type — open any project for the detail.</p>
+        </div>
+        <div id="groups"></div>
+      </div>
+    </div>
+  </section>
+
+  <script>
+  (function () {
+    "use strict";
+    var reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    var finePointer = window.matchMedia("(pointer: fine)").matches;
+
+    /* ===================== CONTENT (grounded in the real repos) ===================== */
+    var IDENTITY = { name: "Sasha Guriev", handle: "minmize", email: "sasha.guriev.ca@gmail.com", github: "https://github.com/minmize" };
+
+    var PHASES = [
+      { eyebrow: "Who I am", title: "A builder at the model–product line", render: function () {
+        return text("I'm a self-directed engineer working where machine learning meets product. I take ideas from a rough sketch to something a person can actually use — designing the system, training the models, and building the interface that fronts them.",
+                    "My work runs across three surfaces: native Android, Python ML, and the browser. I care as much about a clean build pipeline and honest fallbacks as I do about the result on screen."); } },
+      { eyebrow: "What I've built", title: "Five projects, end to end", render: function () {
+        return list([
+          ["Two Android apps shipped to Google Play's current target-API standard", "— one that teaches market analysis, one that trains neural networks on-device."],
+          ["An attention-based forecasting model", "predicting US equity moves across six horizons from 27 engineered indicators."],
+          ["A real-time computer-vision pipeline", "webcam → YOLO11 pose → 3D lift → time-stamped movement coaching."],
+          ["Offline-first systems with deterministic fallbacks", "so the tools keep working even with no API key present."]
+        ]); } },
+      { eyebrow: "Skills", title: "What I reach for", render: function () {
+        return skills([
+          ["Languages", ["Kotlin", "Python", "JavaScript", "Java"]],
+          ["Mobile", ["Android SDK", "Material 3", "ViewBinding", "MPAndroidChart", "R8"]],
+          ["ML & data", ["PyTorch", "Transformers / attention", "Encog", "Feature engineering", "NumPy"]],
+          ["Computer vision", ["YOLO11 pose", "2D→3D lifting", "Three.js"]],
+          ["LLM integration", ["Anthropic Claude API", "Structured JSON", "Rule-based fallbacks"]],
+          ["Backend & web", ["FastAPI", "Vanilla JS", "Single-file apps"]]
+        ]); } },
+      { eyebrow: "How I work", title: "The way I build", render: function () {
+        return list([
+          ["End-to-end ownership", "— I build the model, the pipeline, and the interface, not just one slice."],
+          ["Offline-first, graceful by default", "every advisor has a deterministic fallback; no dead ends when an API is down."],
+          ["Documented as I go", "each project carries a living structure document so it stays legible."],
+          ["Built for real platforms", "shipped to Play-store standards and runnable commands, not just demos."]
+        ]); } },
+      { eyebrow: "Contact", title: "Let's talk", render: function () {
+        var h = '<p class="c-text">Open to roles and collaboration in applied AI, mobile, and computer vision. The fastest way to reach me is email.</p><div class="contactgrid">';
+        h += contact("Email", IDENTITY.email, "mailto:" + IDENTITY.email, false);
+        h += contact("GitHub", "github.com/" + IDENTITY.handle, IDENTITY.github, true);
+        return h + "</div>"; } }
+    ];
+
+    var CONSTELLATIONS = [
+      { id: "apps", name: "Mobile Apps", sub: "Android · shipped",
+        line: [[430, 96], [560, 138], [712, 92], [848, 140], [988, 104]],
+        faint: [[430, 96], [712, 92], [988, 104]],
+        stars: [
+          { at: [560, 138], title: "MarketMind", category: "Mobile Apps",
+            tag: "Learn market analysis, then test your read on real history.",
+            summary: "An Android app in two halves. Learn is seven picture-forward modules, one per analysis method, where every key term has a worked numeric example and each module ends in a quiz. The Prediction Lab freezes real situations at a decision point and asks you to call the next move's direction, size, and time window — then reveals the actual move on the chart and scores all three. It holds documented historical cases alongside roughly 24 practice drills per method.",
+            stack: ["Kotlin", "Material 3", "MPAndroidChart", "Gson", "ViewBinding", "Min SDK 26 / Target 36"],
+            highlights: [["Two-mode flow.", "Seven Learn modules unlock the Prediction Lab."],["Scored on three axes.", "Direction, magnitude, and time window — not just up/down."],["Play-ready.", "Built to Google Play's current target-API requirement (API 36)."]],
+            path: "Financial App/" },
+          { at: [848, 140], title: "NeuralNetworkBuilder", category: "Mobile Apps",
+            tag: "Build, train, and understand neural networks entirely on-device.",
+            summary: "An Android app that walks the full pipeline — interactive tutorials, architecture design, data loading, training, and results — without leaving the phone. The network engine is backed by Encog 3.4 with Apache Commons Math3 for statistics. It asks for no runtime permissions: CSV data is opened through the Storage Access Framework, which grants per-file access instead.",
+            stack: ["Kotlin", "Encog 3.4", "Apache Commons Math3", "Material 3", "OpenCSV", "Coroutines"],
+            highlights: [["Full pipeline.", "Design an architecture, load a CSV, train, and inspect results in one place."],["On-device training.", "No server round-trips; runs against a large heap locally."],["Permissionless I/O.", "File access via the Storage Access Framework, so no storage permission is needed."]],
+            path: "NeuralNetworkApp/" }
+        ] },
+      { id: "intelligence", name: "Machine Intelligence", sub: "Models · vision",
+        line: [[1086, 286], [1182, 236], [1306, 348], [1218, 520], [1098, 560]],
+        faint: [[1086, 286], [1306, 348], [1098, 560]],
+        stars: [
+          { at: [1182, 236], title: "Stock Predictor", category: "Machine Intelligence",
+            tag: "An attention network that forecasts price moves across six horizons.",
+            summary: "A command-line tool that trains an attention-based PyTorch model to predict US stock movements across six time horizons, from one day to six months. Historical OHLCV and fundamentals come from the Massive (formerly Polygon) REST API; news sentiment is scored by Claude; and 27 technical indicators are computed per day. A single universal model is trained across many tickers, with sector identity encoded as a scalar input so one weight file serves every symbol.",
+            stack: ["Python", "PyTorch", "Transformer encoder", "Massive / Polygon API", "Anthropic Claude", "NumPy"],
+            highlights: [["One universal model.", "Sector is a scalar input, so a single weight file serves all tickers."],["Six horizons at once.", "Forecasts the next move from one day out to six months."],["Sentiment optional.", "Runs with --no-sentiment when the LLM step isn't wanted."]],
+            path: "Stock_Predictor/" },
+          { at: [1218, 520], title: "Movement Correction", category: "Machine Intelligence",
+            tag: "Real-time posture analysis with time-stamped coaching.",
+            summary: "A web tool that records a short webcam clip, runs YOLO11 pose detection for 17 keypoints per frame, lifts the 2D poses into 3D, computes six posture metrics plus a per-frame timeline, and asks Claude for structured corrective advice and time-stamped cues. You can save a clip as a reference and compare new clips against a translucent 'ghost' skeleton in an interactive Three.js viewer. Every advisor has a deterministic rule-based fallback, so it stays fully functional offline.",
+            stack: ["Python", "FastAPI", "YOLO11 pose", "Three.js", "Anthropic Claude", "NumPy"],
+            highlights: [["2D→3D lifting.", "Poses are reconstructed in 3D and shown in an interactive skeleton viewer."],["Reference &amp; compare.", "Save a clip, then overlay a translucent ghost to match against it."],["Offline-first.", "Rule-based fallback generates advice when no API key is set."]],
+            path: "Movement_Correction/" }
+        ] },
+      { id: "tools", name: "Developer Tools", sub: "Web utilities",
+        line: [[140, 360], [300, 438], [392, 600]],
+        faint: [[140, 360], [392, 600]],
+        stars: [
+          { at: [300, 438], title: "GameSpecBuilder", category: "Developer Tools",
+            tag: "Turn a vague game idea into a precise, build-ready prompt.",
+            summary: "A single-page browser tool that converts a game concept into a structured prompt ready to hand to an LLM. You fill a form — concept, stack, mechanics, controls, entities, look &amp; feel, acceptance criteria — and the right panel renders the generated prompt live. A spec-strength meter scores completeness and flags missing fields, and six genre presets auto-populate the form for a quick start. It's one self-contained HTML file: no build step, no dependencies, no network.",
+            stack: ["HTML", "CSS", "Vanilla JavaScript", "localStorage"],
+            highlights: [["Live preview.", "The prompt re-renders as you type, beside a completeness meter."],["Genre presets.", "Six starting points auto-populate the whole form."],["Zero dependencies.", "A single HTML file; state persists to localStorage."]],
+            path: "GameSpecBuilder/" }
+        ] }
+    ];
+
+    /* ===================== content helpers ===================== */
+    function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+    function pad(n) { return (n < 10 ? "0" : "") + n; }
+    function text() { var o = ""; for (var i = 0; i < arguments.length; i++) o += '<p class="c-text">' + arguments[i] + "</p>"; return o; }
+    function list(items) { var h = '<ul class="c-list">'; items.forEach(function (it, i) { h += '<li><span class="mk">' + pad(i + 1) + '</span><span><b>' + it[0] + "</b> " + it[1] + "</span></li>"; }); return h + "</ul>"; }
+    function skills(rows) { var h = '<div class="skillset">'; rows.forEach(function (r) { h += '<div class="skillrow"><div class="skillrow__label">' + r[0] + '</div><div class="chips">'; r[1].forEach(function (c) { h += '<span class="chip">' + c + "</span>"; }); h += "</div></div>"; }); return h + "</div>"; }
+    function contact(k, v, href, ext) { var a = ext ? ' target="_blank" rel="noopener noreferrer"' : ""; return '<a class="contactrow" href="' + href + '"' + a + '><span class="contactrow__k">' + k + '</span><span>' + v + " →</span></a>"; }
+
+    /* ===================== moon (realistic, monochrome, crater-textured) ===================== */
+    function litPath(R, illum, waxing) {
+      var b = 1 - 2 * illum, rx = Math.abs(b) * R, sweep = b > 0 ? 0 : 1;
+      return "M0 " + (-R) + " A " + R + " " + R + " 0 0 1 0 " + R + " A " + rx.toFixed(2) + " " + R + " 0 0 " + sweep + " 0 " + (-R) + " Z";
+    }
+    function sparkleStar(cx, cy, S) {
+      var k = 0.7071 * (S * 0.15);
+      return "M" + cx + "," + (cy - S) + " L" + (cx + k) + "," + (cy - k) + " L" + (cx + S) + "," + cy +
+        " L" + (cx + k) + "," + (cy + k) + " L" + cx + "," + (cy + S) + " L" + (cx - k) + "," + (cy + k) +
+        " L" + (cx - S) + "," + cy + " L" + (cx - k) + "," + (cy - k) + " Z";
+    }
+    var moonUID = 0;
+    function craterField(R, id) {
+      var seed = 17, rnd = function () { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; };
+      var out = '<g clip-path="url(#clip-' + id + ')">';
+      for (var i = 0; i < 30; i++) {
+        var a = rnd() * Math.PI * 2, rad = Math.sqrt(rnd()) * R * 0.93;
+        var cx = Math.cos(a) * rad, cy = Math.sin(a) * rad;
+        var cr = R * (0.025 + rnd() * 0.11);
+        var floor = (0.14 + rnd() * 0.26).toFixed(2);
+        out += '<circle cx="' + cx.toFixed(1) + '" cy="' + cy.toFixed(1) + '" r="' + cr.toFixed(1) + '" fill="#666970" opacity="' + floor + '" filter="url(#soft)"/>';
+        out += '<path d="M' + (cx - cr) + ' ' + cy + ' A ' + cr + ' ' + cr + ' 0 0 1 ' + (cx + cr * 0.4).toFixed(1) + ' ' + (cy - cr * 0.9).toFixed(1) + '" fill="none" stroke="#ffffff" stroke-width="' + (cr * 0.16).toFixed(2) + '" opacity="' + (0.12 + rnd() * 0.2).toFixed(2) + '"/>';
+      }
+      return out + "</g>";
+    }
+    function moonMarkup(opts) {
+      var R = opts.R, id = "m" + (moonUID++);
+      var lit = litPath(R, opts.illum, opts.waxing);
+      var mirror = opts.waxing ? "" : ' transform="scale(-1,1)"';
+      var glow = opts.glow ? '<circle cx="0" cy="0" r="' + (R * 2.0) + '" fill="url(#moonGlow)"/>' : "";
+      return glow +
+        '<g class="moon-halo"' + mirror + '>' +
+          '<defs><clipPath id="clip-' + id + '"><path d="' + lit + '"/></clipPath></defs>' +
+          '<circle cx="0" cy="0" r="' + R + '" fill="url(#moonShade)"/>' +
+          '<circle cx="0" cy="0" r="' + R + '" fill="#ffffff" opacity="0.02"/>' +
+          '<path d="' + lit + '" fill="url(#moonFace)"/>' +
+          '<circle cx="0" cy="0" r="' + R + '" fill="#000" clip-path="url(#clip-' + id + ')" filter="url(#moonMottle)" opacity="0.6"/>' +
+          craterField(R, id) +
+          '<circle cx="0" cy="0" r="' + R + '" fill="#ffffff" clip-path="url(#clip-' + id + ')" filter="url(#moonGrain)" opacity="0.16"/>' +
+          '<circle cx="0" cy="0" r="' + R + '" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="0.75"/>' +
+        "</g>";
+    }
+
+    /* ===================== build the sky (responsive: landscape + portrait) ===================== */
+    var VIEW = {
+      desk: { vb: "0 0 1440 900", W: 1440, H: 900, clear: 190, snakeScale: 1, moon: { x: 1262, y: 752, R: 96 },
+        bright: [[250, 150, 9], [1120, 150, 7], [120, 470, 6], [1090, 700, 6], [470, 760, 5], [690, 250, 5]] },
+      mob: { vb: "0 0 430 860", W: 430, H: 860, clear: 110, snakeScale: 0.62, moon: { x: 360, y: 726, R: 58 },
+        bright: [[58, 300, 5], [392, 168, 5], [120, 776, 4], [300, 250, 4]] }
+    };
+    // desktop positions live on the data; portrait positions here, keyed by id
+    var POSM = {
+      apps:         { line: [[60, 168], [168, 120], [276, 150]], faint: [[60, 168], [276, 150]], stars: [[168, 120], [276, 150]] },
+      intelligence: { line: [[386, 308], [330, 430], [286, 556]], faint: [[386, 308], [286, 556]], stars: [[330, 430], [286, 556]] },
+      tools:        { line: [[70, 470], [128, 596], [70, 700]], faint: [[70, 470], [70, 700]], stars: [[128, 596]] }
+    };
+    var CUR = VIEW.desk;
+    function gLine(c, mob) { return mob ? POSM[c.id].line : c.line; }
+    function gFaint(c, mob) { return mob ? POSM[c.id].faint : c.faint; }
+    function gStar(c, i, mob) { return mob ? POSM[c.id].stars[i] : c.stars[i].at; }
+    function getVar(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || "#9aa77f"; }
+
+    function buildAmbient() {
+      var g = document.getElementById("ambient"), seed = 7, M = CUR.moon;
+      var rnd = function () { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; };
+      var count = CUR === VIEW.mob ? 50 : 86, f = "";
+      for (var i = 0; i < count; i++) {
+        var x = rnd() * CUR.W, y = rnd() * CUR.H;
+        if (Math.hypot(x - M.x, y - M.y) < CUR.clear) continue;
+        var r = (0.5 + rnd() * 1.4).toFixed(2);
+        var mn = (0.16 + rnd() * 0.18).toFixed(2), mx = (0.5 + rnd() * 0.42).toFixed(2);
+        f += '<circle class="amb" cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="' + r + '" style="--tw-min:' + mn + ';--tw-max:' + mx + ';opacity:' + mn + ';animation:twinkle ' + (3 + rnd() * 4).toFixed(1) + 's ease-in-out ' + (rnd() * 5).toFixed(1) + 's infinite"/>';
+      }
+      CUR.bright.forEach(function (b, i) {
+        if (Math.hypot(b[0] - M.x, b[1] - M.y) < CUR.clear) return;
+        f += '<g class="amb-spark"><circle cx="' + b[0] + '" cy="' + b[1] + '" r="' + (b[2] * 2.4) + '" fill="url(#starGlow)" style="--tw-min:.5;--tw-max:1;opacity:.7;animation:twinkle ' + (4 + i) + 's ease-in-out ' + i + 's infinite"/>' +
+          '<path d="' + sparkleStar(b[0], b[1], b[2]) + '" fill="#fff"/><circle cx="' + b[0] + '" cy="' + b[1] + '" r="1" fill="#fff"/></g>';
+      });
+      g.innerHTML = f;
+    }
+
+    function buildConstellations() {
+      var root = document.getElementById("constellations"), mob = CUR === VIEW.mob, h = "";
+      CONSTELLATIONS.forEach(function (c) {
+        h += '<g data-group="' + c.id + '">';
+        h += '<polyline points="' + gLine(c, mob).map(function (p) { return p[0] + "," + p[1]; }).join(" ") + '" fill="none" stroke="rgba(255,255,255,0.22)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>';
+        gFaint(c, mob).forEach(function (p) { h += '<circle cx="' + p[0] + '" cy="' + p[1] + '" r="2" fill="#fff" opacity="0.5"/>'; });
+        c.stars.forEach(function (s, i) {
+          var p = gStar(c, i, mob), x = p[0], y = p[1], S = mob ? 10 : 8.5;
+          h += '<g class="star-node" role="button" tabindex="0" data-project="' + c.id + ":" + i + '" aria-label="Open project: ' + esc(s.title) + '">' +
+            '<circle class="hit" cx="' + x + '" cy="' + y + '" r="' + (mob ? 26 : 32) + '"/>' +
+            '<circle class="glow" cx="' + x + '" cy="' + y + '" r="' + (mob ? 18 : 16) + '" fill="url(#starGlow)"/>' +
+            '<path class="cross" d="' + sparkleStar(x, y, S) + '"/>' +
+            '<circle class="core" cx="' + x + '" cy="' + y + '" r="1.3"/></g>';
+        });
+        h += "</g>";
+      });
+      root.innerHTML = h;
+      Array.prototype.forEach.call(root.querySelectorAll(".star-node"), function (n) {
+        var key = n.getAttribute("data-project");
+        n.addEventListener("click", function (e) { e.stopPropagation(); openProject(key, n); });
+        n.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openProject(key, n); } });
+      });
+    }
+
+    // a stippled spiral galaxy in the corner (replaces the moon), as in the reference
+    function buildGalaxy() {
+      document.getElementById("snake").innerHTML = "";
+      var g = document.getElementById("moon"), M = CUR.moon, cx = M.x, cy = M.y, R = M.R * 1.7;
+      var seed = 23, rnd = function () { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; };
+      var s = '<circle cx="' + cx + '" cy="' + cy + '" r="' + (R * 0.95) + '" fill="url(#gGlow)" opacity="0.6"/>';
+      s += '<circle cx="' + cx + '" cy="' + cy + '" r="' + (R * 0.11) + '" fill="#fff" opacity="0.95" filter="url(#soft)"/>';
+      var arms = 2, perArm = 120, flat = 0.6;
+      for (var a = 0; a < arms; a++) {
+        var base = a * Math.PI;
+        for (var i = 0; i < perArm; i++) {
+          var t = i / perArm;
+          var theta = base + t * Math.PI * 2.5;
+          var rad = R * 0.1 + t * R;
+          var px = cx + Math.cos(theta) * rad + (rnd() - 0.5) * (6 + t * 20);
+          var py = cy + Math.sin(theta) * rad * flat + (rnd() - 0.5) * (5 + t * 16);
+          var rr = (0.4 + rnd() * 1.5 * (1 - t * 0.4)).toFixed(2);
+          var op = (0.2 + rnd() * 0.55 * (1 - t * 0.55)).toFixed(2);
+          s += '<circle cx="' + px.toFixed(1) + '" cy="' + py.toFixed(1) + '" r="' + rr + '" fill="#fff" opacity="' + op + '"/>';
+        }
+      }
+      // a faint haze band along the disk
+      g.innerHTML = '<g transform="rotate(-22 ' + cx + " " + cy + ')">' + s + "</g>";
+    }
+
+    function layoutSky() {
+      CUR = window.matchMedia("(max-width: 760px)").matches ? VIEW.mob : VIEW.desk;
+      document.getElementById("sky").setAttribute("viewBox", CUR.vb);
+      buildAmbient(); buildConstellations(); buildGalaxy();
+    }
+
+    /* ===================== the ornate panel frame (drawn to panel size) ===================== */
+    function buildFrame() {
+      var panel = document.getElementById("panel"), svg = document.getElementById("frame");
+      var r = panel.getBoundingClientRect();
+      var W = Math.max(40, Math.round(r.width) + 28), H = Math.max(40, Math.round(r.height) + 28);
+      svg.setAttribute("viewBox", "0 0 " + W + " " + H);
+      var s = "", o = 14; // inset so the box sits where the panel is
+      var L = o, Rr = W - o, T = o, B = H - o;
+      var gap = 30;
+
+      // side lines
+      s += seg(L, T + gap, L, B - gap, 0.45);
+      s += seg(Rr, T + gap, Rr, B - gap, 0.45);
+
+      // flowy, circling top line
+      s += flowyTop(L + gap, Rr - gap, T);
+      // broken bottom line
+      s += brokenBottom(L + gap, Rr - gap, B);
+
+      // hazy diagonals from the TR cross toward opposite edges
+      s += seg(Rr, T, L + (Rr - L) * 0.34, B, 0.08);
+      s += seg(Rr, T, L, T + (B - T) * 0.40, 0.08);
+
+      // corners (matching the reference): TR + BL = large glowing stars w/ hanging lines; TL + BR = cross + tiny star
+      s += bigCorner(Rr, T) + hang(Rr, T);
+      s += bigCorner(L, B) + hang(L, B);
+      s += crossCorner(L, T);
+      s += crossCorner(Rr, B);
+
+      // soft glows beneath the corner stars (unfiltered so they stay smooth), rough strokes on top
+      var glows = glowAt(Rr, T, 32) + glowAt(L, B, 32) + glowAt(L, T, 18) + glowAt(Rr, B, 18);
+      svg.innerHTML = '<g>' + glows + '</g><g filter="url(#rough)">' + s + "</g>";
+    }
+    function glowAt(x, y, r) { return '<circle cx="' + x + '" cy="' + y + '" r="' + r + '" fill="url(#gGlow)"/>'; }
+    function seg(x1, y1, x2, y2, op) { return '<line x1="' + x1 + '" y1="' + y1 + '" x2="' + x2 + '" y2="' + y2 + '" stroke="#fff" stroke-width="1" opacity="' + op + '"/>'; }
+    function flowyTop(x1, x2, y) {
+      var w = x2 - x1, mid = x1 + w / 2;
+      // a gentle wave with one small loop near the centre
+      var d = "M" + x1 + " " + y +
+        " C " + (x1 + w * 0.18) + " " + (y - 14) + " " + (x1 + w * 0.30) + " " + (y + 12) + " " + (mid - 26) + " " + y +
+        " c 10 -16 30 -16 30 2 c 0 14 -18 16 -24 4" +
+        " C " + (mid + 18) + " " + (y - 10) + " " + (x2 - w * 0.22) + " " + (y + 12) + " " + (x2 - w * 0.10) + " " + (y - 6) +
+        " S " + (x2 - 6) + " " + y + " " + x2 + " " + y;
+      return '<path d="' + d + '" fill="none" stroke="#fff" stroke-width="1" opacity="0.7" stroke-linecap="round"/>';
+    }
+    function brokenBottom(x1, x2, y) {
+      return '<line x1="' + x1 + '" y1="' + y + '" x2="' + x2 + '" y2="' + y + '" stroke="#fff" stroke-width="1" opacity="0.45" stroke-linecap="round" stroke-dasharray="34 7 12 9 52 6 18 12 40 8"/>';
+    }
+    function bigCorner(x, y) {
+      // 4-point star with stretched vertical spikes
+      var S = 16, k = 0.7071 * (S * 0.13), V = S * 1.7;
+      var d = "M" + x + "," + (y - V) + " L" + (x + k) + "," + (y - k) + " L" + (x + S) + "," + y +
+        " L" + (x + k) + "," + (y + k) + " L" + x + "," + (y + V) + " L" + (x - k) + "," + (y + k) +
+        " L" + (x - S) + "," + y + " L" + (x - k) + "," + (y - k) + " Z";
+      return '<path d="' + d + '" fill="#fff" opacity="0.92"/><circle cx="' + x + '" cy="' + y + '" r="1.4" fill="#fff"/>';
+    }
+    function hang(x, y) {
+      // faint white lines hanging downward from the corner star
+      var s = "", offs = [-7, 0, 8, 15];
+      offs.forEach(function (dx, i) { var len = 26 + (i % 2) * 22 + (i === 1 ? 16 : 0); s += '<line x1="' + (x + dx) + '" y1="' + (y + 6) + '" x2="' + (x + dx) + '" y2="' + (y + 6 + len) + '" stroke="#fff" stroke-width="1" opacity="' + (0.22 - i * 0.03).toFixed(2) + '"/>'; });
+      return s;
+    }
+    function crossCorner(x, y) {
+      var a = 18;
+      return '<line x1="' + (x - a) + '" y1="' + y + '" x2="' + (x + a) + '" y2="' + y + '" stroke="#fff" stroke-width="1" opacity="0.6"/>' +
+        '<line x1="' + x + '" y1="' + (y - a) + '" x2="' + x + '" y2="' + (y + a) + '" stroke="#fff" stroke-width="1" opacity="0.6"/>' +
+        '<circle cx="' + x + '" cy="' + y + '" r="2" fill="#fff"/>';
+    }
+
+    /* ===================== panel content swap (directional bleed + beam) ===================== */
+    var panel = document.getElementById("panel"),
+        panelContent = document.getElementById("panelContent"),
+        panelViewport = document.getElementById("panelViewport"),
+        beam = document.getElementById("beam"),
+        stage = document.getElementById("stage");
+    var mode = "home", aboutIndex = 0;
+
+    function dirFrom(el) {
+      var pr = panel.getBoundingClientRect(), pc = { x: pr.left + pr.width / 2, y: pr.top + pr.height / 2 };
+      var ec; if (el) { var er = el.getBoundingClientRect(); ec = { x: er.left + er.width / 2, y: er.top + er.height / 2 }; } else { ec = { x: pc.x, y: pc.y - 60 }; }
+      var dx = ec.x - pc.x, dy = ec.y - pc.y, len = Math.hypot(dx, dy) || 1;
+      return { nx: dx / len, ny: dy / len, ang: Math.atan2(dy, dx) * 180 / Math.PI };
+    }
+    function showPanel(html, fromEl, focusSel) {
+      var d = dirFrom(fromEl);
+      panelContent.style.setProperty("--bx", d.nx.toFixed(3));
+      panelContent.style.setProperty("--by", d.ny.toFixed(3));
+      beam.style.setProperty("--ang", d.ang.toFixed(1) + "deg");
+      panel.classList.add("is-open");
+      panelViewport.scrollTop = 0;
+      panelContent.innerHTML = html;
+      panelContent.classList.remove("bleed-in"); void panelContent.offsetWidth; panelContent.classList.add("bleed-in");
+      beam.classList.remove("sweep"); void beam.offsetWidth; beam.classList.add("sweep");
+      if (focusSel) { var fEl = panelContent.querySelector(focusSel); if (fEl) try { fEl.focus({ preventScroll: true }); } catch (e) {} }
+    }
+    function projectByKey(key) { var p = key.split(":"), c = CONSTELLATIONS.filter(function (x) { return x.id === p[0]; })[0]; return c ? c.stars[+p[1]] : null; }
+    function projectHTML(s) {
+      var h = '<p class="c-kicker">' + esc(s.category) + "</p>";
+      h += '<h2 class="c-title" tabindex="-1">' + esc(s.title) + "</h2>";
+      h += '<p class="c-tag">' + s.tag + "</p>";
+      h += '<p class="c-text">' + s.summary + "</p>";
+      h += '<p class="c-h">Highlights</p><ul class="c-list">';
+      s.highlights.forEach(function (x, i) { h += '<li><span class="mk">' + pad(i + 1) + '</span><span><b>' + x[0] + "</b> " + x[1] + "</span></li>"; });
+      h += "</ul><p class=\"c-h\">Stack</p><div class=\"chips\">";
+      s.stack.forEach(function (t) { h += '<span class="chip">' + esc(t) + "</span>"; });
+      h += '</div><div class="c-foot"><span class="c-path">' + esc(s.path) + '</span><a class="btn" href="' + IDENTITY.github + '" target="_blank" rel="noopener noreferrer">View on GitHub</a></div>';
+      return h;
+    }
+    function aboutHTML(i) {
+      var p = PHASES[i];
+      var h = '<p class="c-kicker">' + esc(p.eyebrow) + '<span class="c-step">' + pad(i + 1) + " / " + pad(PHASES.length) + "</span></p>";
+      h += '<h2 class="c-title" tabindex="-1">' + esc(p.title) + "</h2>";
+      h += p.render();
+      h += '<div class="cyc"><button class="cyc__arrow" data-prev type="button" aria-label="Previous"><svg width="13" height="13" viewBox="0 0 14 14" aria-hidden="true"><path d="M9 2 4 7l5 5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>';
+      h += '<div class="cyc__seg">'; PHASES.forEach(function (_, di) { h += '<span class="' + (di === i ? "on" : "") + '"></span>'; });
+      h += '<svg class="cyc__star" viewBox="-12 -12 24 24" aria-hidden="true"><circle r="11" fill="url(#gGlow)"/><path d="' + sparkleStar(0, 0, 9) + '" fill="#fff"/></svg></div>';
+      h += '<button class="cyc__arrow" data-next type="button" aria-label="Next"><svg width="13" height="13" viewBox="0 0 14 14" aria-hidden="true"><path d="M5 2l5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div>';
+      return h;
+    }
+    function openProject(key, fromEl) { var s = projectByKey(key); if (!s) return; mode = "project"; showPanel(projectHTML(s), fromEl, ".c-title"); }
+    function openAbout(i, fromEl) { i = (i + PHASES.length) % PHASES.length; aboutIndex = i; mode = "about"; showPanel(aboutHTML(i), fromEl, ".c-title"); }
+
+    // clicks inside the panel must never bubble to the stage's "empty sky" handler
+    // (the cycler re-renders panelContent, detaching the click target — without this
+    //  the bubbled event would no longer match .panel and would send you home)
+    panel.addEventListener("click", function (e) { e.stopPropagation(); });
+    // about cycler (delegated)
+    panelContent.addEventListener("click", function (e) {
+      var prev = e.target.closest("[data-prev]"), next = e.target.closest("[data-next]");
+      if (prev) { e.stopPropagation(); openAbout(aboutIndex - 1, prev); }
+      else if (next) { e.stopPropagation(); openAbout(aboutIndex + 1, next); }
+    });
+
+    /* ===================== home = the About landing (name · empty sky · Esc) ===================== */
+    function goHome() { if (mode === "about" && aboutIndex === 0 && panel.classList.contains("is-open")) return; openAbout(0, null); }
+    document.getElementById("npName").addEventListener("click", function (e) { e.stopPropagation(); goHome(); });
+    stage.addEventListener("click", function (e) {
+      if (e.target.closest(".star-node") || e.target.closest(".moon-node") || e.target.closest(".panel") || e.target.closest(".nameplate")) return;
+      goHome();
+    });
+    document.addEventListener("keydown", function (e) {
+      if (e.key !== "Escape") return;
+      if (document.getElementById("indexscreen").classList.contains("is-open")) closeIndex();
+      else goHome();
+    });
+
+    /* ===================== mouse parallax ("rolling" living sky) ===================== */
+    if (finePointer && !reduceMotion) {
+      var layers = [
+        { el: document.getElementById("ambient"), k: 8 },
+        { el: document.getElementById("constellations"), k: 16 },
+        { el: document.getElementById("moon"), k: 24 },
+        { el: document.getElementById("snake"), k: 24 }
+      ];
+      var tx = 0, ty = 0, cx = 0, cy = 0, ticking = false;
+      window.addEventListener("pointermove", function (e) {
+        tx = (e.clientX / window.innerWidth - 0.5) * 2;
+        ty = (e.clientY / window.innerHeight - 0.5) * 2;
+        if (!ticking) { ticking = true; requestAnimationFrame(par); }
+      });
+      function par() {
+        cx += (tx - cx) * 0.06; cy += (ty - cy) * 0.06;
+        layers.forEach(function (l) { l.el.style.transform = "translate(" + (-cx * l.k).toFixed(2) + "px," + (-cy * l.k).toFixed(2) + "px)"; });
+        if (Math.abs(tx - cx) > 0.001 || Math.abs(ty - cy) > 0.001) requestAnimationFrame(par); else ticking = false;
+      }
+    }
+
+    /* ===================== index screen (inertia / rolling scroll) ===================== */
+    var indexscreen = document.getElementById("indexscreen"),
+        indexView = document.getElementById("indexView"),
+        indexTrack = document.getElementById("indexTrack");
+    var sTarget = 0, sRAF = null, rafOK = false;
+    requestAnimationFrame(function () { rafOK = true; });
+
+    function buildIndex() {
+      var root = document.getElementById("groups"), h = "", n = 0;
+      CONSTELLATIONS.forEach(function (c) {
+        h += '<section class="group"><div class="group__head"><h3 class="group__name">' + esc(c.name) + '</h3><span class="group__sub">' + esc(c.sub) + '</span><span class="group__count">' + pad(c.stars.length) + (c.stars.length === 1 ? " project" : " projects") + '</span></div><div class="cards">';
+        c.stars.forEach(function (s, i) {
+          n += 1;
+          h += '<button class="card" type="button" data-project="' + c.id + ":" + i + '"><svg class="card__frame" aria-hidden="true" preserveAspectRatio="none"></svg><div class="card__top"><span class="card__idx">' + pad(n) + '</span><span class="card__name">' + esc(s.title) + '</span></div><p class="card__tag">' + s.tag + '</p><div class="card__meta"><span>' + s.stack[0] + " · " + s.stack[1] + '</span><span class="card__cue">Open →</span></div></button>';
+        });
+        h += "</div></section>";
+      });
+      root.innerHTML = h;
+      Array.prototype.forEach.call(root.querySelectorAll(".card"), function (btn) {
+        btn.addEventListener("click", function () { var key = btn.getAttribute("data-project"); closeIndex(); setTimeout(function () { openProject(key, null); }, 260); });
+      });
+    }
+    // give each index card the same hand-drawn frame language as the box (lighter)
+    function buildCardFrames() {
+      Array.prototype.forEach.call(document.querySelectorAll(".card"), function (card) {
+        var svg = card.querySelector(".card__frame"); if (!svg) return;
+        var r = card.getBoundingClientRect(), W = Math.round(r.width), H = Math.round(r.height);
+        if (W < 20 || H < 20) return;
+        svg.setAttribute("viewBox", "0 0 " + W + " " + H);
+        var o = 7, L = o, Rr = W - o, T = o, B = H - o, s = "";
+        // sketchy border (rough), broken along the bottom
+        s += '<path d="M' + L + ' ' + (T + 10) + ' L' + L + ' ' + (B - 10) + '" stroke="#fff" stroke-width="1" opacity="0.32" fill="none"/>';
+        s += '<path d="M' + Rr + ' ' + (T + 10) + ' L' + Rr + ' ' + (B - 10) + '" stroke="#fff" stroke-width="1" opacity="0.32" fill="none"/>';
+        s += '<path d="M' + (L + 12) + ' ' + T + ' L' + (Rr - 12) + ' ' + T + '" stroke="#fff" stroke-width="1" opacity="0.4" fill="none"/>';
+        s += '<path d="M' + (L + 12) + ' ' + B + ' L' + (Rr - 12) + ' ' + B + '" stroke="#fff" stroke-width="1" opacity="0.3" fill="none" stroke-dasharray="22 6 9 8 30 6"/>';
+        // TL corner star with short hanging lines; BR corner cross + tiny star
+        var st = 9, k = 0.7071 * (st * 0.14), V = st * 1.6;
+        var d = "M" + L + "," + (T - V) + " L" + (L + k) + "," + (T - k) + " L" + (L + st) + "," + T + " L" + (L + k) + "," + (T + k) + " L" + L + "," + (T + V) + " L" + (L - k) + "," + (T + k) + " L" + (L - st) + "," + T + " L" + (L - k) + "," + (T - k) + " Z";
+        var head = '<g><circle cx="' + L + '" cy="' + T + '" r="13" fill="url(#gGlow)"/><g filter="url(#roughSoft)">';
+        var tail = '<path d="' + d + '" fill="#fff" opacity="0.95"/>';
+        tail += '<line x1="' + (L - 4) + '" y1="' + (T + 5) + '" x2="' + (L - 4) + '" y2="' + (T + 20) + '" stroke="#fff" stroke-width="1" opacity="0.2"/>';
+        tail += '<line x1="' + (L + 3) + '" y1="' + (T + 5) + '" x2="' + (L + 3) + '" y2="' + (T + 27) + '" stroke="#fff" stroke-width="1" opacity="0.16"/>';
+        tail += '<line x1="' + (Rr - 9) + '" y1="' + B + '" x2="' + (Rr + 9) + '" y2="' + B + '" stroke="#fff" stroke-width="1" opacity="0.5"/>';
+        tail += '<line x1="' + Rr + '" y1="' + (B - 9) + '" x2="' + Rr + '" y2="' + (B + 9) + '" stroke="#fff" stroke-width="1" opacity="0.5"/>';
+        tail += '<circle cx="' + Rr + '" cy="' + B + '" r="1.6" fill="#fff"/>';
+        svg.innerHTML = '<g filter="url(#roughSoft)">' + s + "</g>" + head + tail + "</g></g>";
+      });
+    }
+    // inertia "rolling" wheel scroll on top of native scroll; degrades to native if rAF is unavailable
+    function smoothLoop() {
+      var cur = indexView.scrollTop, d = sTarget - cur;
+      if (Math.abs(d) < 0.5) { indexView.scrollTop = sTarget; sRAF = null; return; }
+      indexView.scrollTop = cur + d * 0.16; sRAF = requestAnimationFrame(smoothLoop);
+    }
+    indexView.addEventListener("wheel", function (e) {
+      if (!rafOK || reduceMotion) return;                 // native scroll handles it
+      e.preventDefault();
+      var max = indexView.scrollHeight - indexView.clientHeight;
+      var base = sRAF ? sTarget : indexView.scrollTop;
+      sTarget = Math.max(0, Math.min(max, base + e.deltaY));
+      if (!sRAF) sRAF = requestAnimationFrame(smoothLoop);
+    }, { passive: false });
+    function openIndex() { indexscreen.classList.add("is-open"); indexscreen.setAttribute("aria-hidden", "false"); indexView.scrollTop = 0; sTarget = 0; sRAF = null; buildCardFrames(); document.getElementById("indexClose").focus(); }
+    function closeIndex() { indexscreen.classList.remove("is-open"); indexscreen.setAttribute("aria-hidden", "true"); document.getElementById("npIndex").focus(); }
+    document.getElementById("npIndex").addEventListener("click", function (e) { e.stopPropagation(); openIndex(); });
+    document.getElementById("indexClose").addEventListener("click", closeIndex);
+
+    /* ===================== init ===================== */
+    layoutSky(); buildIndex(); buildCardFrames();
+    openAbout(0, null);                 // the About box is the landing page
+    requestAnimationFrame(buildFrame);
+    setTimeout(buildFrame, 60);         // re-measure once fonts/layout settle
+    var wasMob = window.matchMedia("(max-width: 760px)").matches;
+    var rT; window.addEventListener("resize", function () { clearTimeout(rT); rT = setTimeout(function () { var m = window.matchMedia("(max-width: 760px)").matches; if (m !== wasMob) { wasMob = m; layoutSky(); } buildFrame(); buildCardFrames(); }, 140); });
+  })();
+  </script>
+</body>
+</html>
