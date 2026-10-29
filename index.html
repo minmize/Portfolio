@@ -3,161 +3,109 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>Sasha Guriev · World's Edge Mountains Campaign Portfolio</title>
-  <meta name="description" content="The portfolio of Sasha Guriev (@minmize), explored as the World's Edge Mountains campaign map from Total War: Warhammer III — from Karak Ungor through Karaz-a-Karak down to Karak Eight Peaks." />
+  <title>Sasha Guriev · World's Edge Mountains</title>
+  <meta name="description" content="The portfolio of Sasha Guriev (@minmize), explored as a Total War: Warhammer III style campaign map of the World's Edge Mountains — from Karak Ungor through Karaz-a-Karak down to Karak Eight Peaks." />
   <meta name="author" content="Sasha Guriev" />
-  <meta name="theme-color" content="#0d0b0a" />
+  <meta name="theme-color" content="#120d09" />
   <meta name="color-scheme" content="dark" />
 
   <meta property="og:type" content="website" />
-  <meta property="og:title" content="Sasha Guriev — Karaz Ankor Campaign Portfolio" />
-  <meta property="og:description" content="Explore App Coding & Software, Algorithmic Trading & Finance, and Engineering Craft across the World's Edge Mountains." />
+  <meta property="og:title" content="Sasha Guriev — World's Edge Mountains" />
+  <meta property="og:description" content="App Coding & Software and Algorithmic Trading & Finance, explored as a campaign map." />
   <meta property="og:image" content="og-image.svg" />
   <meta property="og:image:width" content="1200" />
   <meta property="og:image:height" content="630" />
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="Sasha Guriev — World's Edge Mountains Portfolio" />
+  <meta name="twitter:title" content="Sasha Guriev — World's Edge Mountains" />
   <meta name="twitter:image" content="og-image.svg" />
 
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpolygon points='3,2 29,2 29,22 16,30 3,22' fill='%231f5aa6' stroke='%23d9b66c' stroke-width='2.5'/%3E%3Cpath d='M10 11h12v3h-4.5v9h-3v-9H10z' fill='%23f0d79c'/%3E%3C/svg%3E" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpolygon points='3,2 29,2 29,22 16,30 3,22' fill='%237a1c15' stroke='%23c9a45c' stroke-width='2.5'/%3E%3Cpath d='M10 11h12v3h-4.5v9h-3v-9H10z' fill='%23ecd29a'/%3E%3C/svg%3E" />
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Crimson+Pro:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Alegreya:ital,wght@0,400;0,500;0,700;1,400;1,500&family=Grenze+Gotisch:wght@500;600;700&family=Grenze:wght@400;500;600;700&display=swap" rel="stylesheet" />
 
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body data-tier="strategic">
-  <a class="skip-link" href="#ledgerOpenBtn">Skip to Portfolio Ledger</a>
+  <!-- Loading veil (removed once the terrain is built) -->
+  <div class="veil" id="veil" aria-hidden="true">
+    <div class="veil__inner">
+      <svg class="veil__crest" width="44" height="50" viewBox="0 0 32 36" aria-hidden="true"><polygon points="2,2 30,2 30,24 16,34 2,24" fill="#5e1410" stroke="#c9a45c" stroke-width="2"/><path d="M9 10h14v3.4h-5.3V26h-3.4V13.4H9z" fill="#ecd29a"/></svg>
+      <p class="veil__text">Charting the World's Edge…</p>
+    </div>
+  </div>
 
-  <!-- =================== 3D WORLD'S EDGE MOUNTAINS STAGE =================== -->
+  <!-- 3D map -->
   <main id="map-stage" aria-label="Interactive 3D campaign map of the World's Edge Mountains">
     <canvas id="webgl-canvas"></canvas>
   </main>
   <div class="vignette" aria-hidden="true"></div>
 
-  <!-- Floating 3D-projected Province & City Banners -->
-  <div id="marker-layer" aria-live="polite"></div>
+  <!-- Province lettering, settlement nameplates and landmark labels projected from 3D -->
+  <div id="marker-layer"></div>
 
-  <!-- =================== TOP TOTAL WAR CAMPAIGN HUD =================== -->
-  <header class="top-hud">
-    <!-- Top-Left Medallion Controls & Map Overlay Ribbons -->
-    <div class="hud-topleft">
-      <div class="hud-medallions" role="toolbar" aria-label="Campaign controls">
-        <button class="medallion-btn" id="strategicResetBtn" type="button" title="Strategic Map Overview (Zoom Out)" aria-label="Zoom out to Strategic Map">
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
-        </button>
-        <button class="medallion-btn" id="ledgerOpenBtn" type="button" title="Great Book of Works (Full Portfolio Index)" aria-label="Open full portfolio ledger">
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
-        </button>
-        <button class="medallion-btn" id="profileJumpBtn" type="button" title="High King's Profile (About & Skills)" aria-label="Inspect About, Skills, and Contact">
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M2 18h20v2H2zM3 15l3-9 6 5 6-5 3 9H3z"/></svg>
-        </button>
-        <a class="medallion-btn" id="githubTopBtn" href="https://github.com/minmize" target="_blank" rel="noopener noreferrer" title="GitHub (@minmize)" aria-label="Open Sasha Guriev GitHub">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5a12 12 0 0 0-3.79 23.39c.6.11.82-.26.82-.58v-2.03c-3.34.73-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.09-.75.08-.73.08-.73 1.21.08 1.85 1.24 1.85 1.24 1.07 1.84 2.81 1.31 3.5 1 .11-.78.42-1.31.76-1.61-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.13-.3-.54-1.52.12-3.18 0 0 1.01-.32 3.3 1.23a11.5 11.5 0 0 1 6.01 0c2.29-1.55 3.3-1.23 3.3-1.23.66 1.66.25 2.88.12 3.18.77.84 1.24 1.91 1.24 3.22 0 4.61-2.81 5.62-5.48 5.92.43.37.81 1.1.81 2.22v3.29c0 .32.22.7.83.58A12 12 0 0 0 12 .5z"/></svg>
-        </a>
-      </div>
-
-      <div class="hud-ribbons" role="group" aria-label="Map overlay toggles">
-        <button class="ribbon-toggle is-on" id="toggleBordersBtn" type="button">Borders</button>
-        <button class="ribbon-toggle is-on" id="toggleUnderwayBtn" type="button">Underway</button>
-        <button class="ribbon-toggle is-on" id="toggleLandmarksBtn" type="button">Lore</button>
-      </div>
+  <!-- =================== TOP HUD =================== -->
+  <header class="hud-top">
+    <div class="hud-top__left">
+      <button class="book-btn" id="bookOpenBtn" type="button" aria-label="Open the Book of Works — read the whole portfolio as plain text">
+        <span class="book-btn__medal" aria-hidden="true">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 4h7a3 3 0 0 1 3 3v13a2 2 0 0 0-2-2H2V4z"/><path d="M22 4h-7a3 3 0 0 0-3 3v13a2 2 0 0 1 2-2h8V4z"/></svg>
+        </span>
+        <span class="book-btn__text">
+          <span class="book-btn__title">Book of Works</span>
+          <span class="book-btn__sub">Read everything plainly</span>
+        </span>
+      </button>
     </div>
 
-    <!-- Top-Center Faction Treasury Bar & Navigation Context -->
-    <div class="hud-topcenter">
-      <div class="treasury-bar">
-        <button class="faction-badge" id="factionHomeBtn" type="button" title="Click to inspect Sasha Guriev's profile">
-          <span class="faction-badge__shield" aria-hidden="true">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M5 4h14v3h-5.5v13h-3V7H5z"/></svg>
-          </span>
-          <span>
-            <div class="faction-badge__name" id="hudIdentityName">Sasha Guriev</div>
-            <div class="faction-badge__sub" id="hudIdentitySub">Karaz Ankor · Applied-AI &amp; Systems Guild</div>
-          </span>
-        </button>
-        <div class="treasury-stats" id="hudTreasuryStats"></div>
+    <div class="hud-top__center">
+      <div class="plaque">
+        <h1 class="plaque__name" id="plaqueName">Sasha Guriev</h1>
+        <div class="plaque__rule" aria-hidden="true"><span></span></div>
+        <p class="plaque__script" id="plaqueScript"></p>
       </div>
-
-      <div class="context-banner" id="contextBanner">
-        <span class="context-banner__crumb" id="contextCrumb">World's Edge Mountains · Strategic Overview</span>
-        <span class="context-banner__hint" id="contextHint">Click any province banner to zoom into its holds</span>
-        <button class="context-banner__back" id="contextBackBtn" type="button" hidden>← Strategic Map</button>
-      </div>
+      <button class="return-pill" id="returnBtn" type="button" hidden>‹ Return to the World Map</button>
     </div>
 
-    <!-- Top-Right Strategic Parchment Minimap -->
-    <aside class="minimap-card" aria-label="World's Edge Mountains strategic minimap">
-      <div class="minimap-card__head">
-        <span>World's Edge</span>
-        <span id="minimapZoomLabel">Strategic</span>
-      </div>
-      <div class="minimap-viewport" id="minimapViewport" title="Click a province on the parchment map to fly there">
-        <svg id="minimap-svg" viewBox="-62 -92 124 190" preserveAspectRatio="xMidYMid slice"></svg>
-      </div>
-    </aside>
+    <div class="hud-top__right">
+      <aside class="minimap" aria-label="Strategic minimap">
+        <div class="minimap__head" id="minimapLabel">World's Edge</div>
+        <div class="minimap__view">
+          <svg id="minimap-svg" viewBox="-70 -92 140 184" preserveAspectRatio="xMidYMid meet"></svg>
+        </div>
+      </aside>
+    </div>
   </header>
 
-  <!-- =================== TW:WH3 HOVER TOOLTIP =================== -->
+  <!-- Hover tooltip -->
   <div class="tw-tooltip" id="twTooltip" role="tooltip" aria-hidden="true"></div>
 
-  <!-- =================== BOTTOM SETTLEMENT & CONSTRUCTION PANEL =================== -->
-  <section class="settlement-hud" id="settlementHud" aria-label="Settlement construction options">
-    <div class="sh-topbar">
-      <div class="sh-holds" id="shHoldsTabs"></div>
-      <div class="sh-actions">
-        <button class="sh-btn" id="shProvinceBackBtn" type="button">↑ Province View</button>
-        <button class="sh-btn" id="shCloseBtn" type="button" aria-label="Return to strategic map">✕ World Map</button>
-      </div>
+  <!-- =================== SETTLEMENT: building info (left) =================== -->
+  <aside class="building-info" id="buildingInfo" aria-live="polite" aria-label="Selected construction details"></aside>
+
+  <!-- =================== SETTLEMENT: construction bar (bottom) =================== -->
+  <section class="settlement-bar" id="settlementBar" aria-label="Settlement construction options">
+    <div class="sb-head">
+      <div class="sb-province" id="sbProvince"></div>
+      <div class="sb-tabs" id="sbTabs" role="tablist" aria-label="Holds in this province"></div>
     </div>
-
-    <div class="sh-body">
-      <div class="sh-slots-col">
-        <div class="sh-city-head" id="shCityHead"></div>
-        <div>
-          <div class="slots-label">
-            <span>Construction Options</span>
-            <span id="shSlotCount">3 Slots</span>
-          </div>
-          <div class="building-slots" id="shBuildingSlots" role="tablist" aria-label="City construction options"></div>
-        </div>
-      </div>
-
-      <div class="sh-detail-col" id="shDetailCol" role="tabpanel" aria-live="polite"></div>
+    <div class="sb-body">
+      <div class="sb-city" id="sbCity"></div>
+      <div class="sb-slots" id="sbSlots" role="tablist" aria-label="Construction options"></div>
     </div>
   </section>
 
-  <!-- =================== BOTTOM-RIGHT TURN / CAMERA DIAL =================== -->
-  <aside class="corner-dial" aria-label="Map navigation shortcuts">
-    <div class="dial-satellites">
-      <button class="medallion-btn" id="zoomInBtn" type="button" title="Zoom In" aria-label="Zoom in">+</button>
-      <button class="medallion-btn" id="zoomOutBtn" type="button" title="Zoom Out" aria-label="Zoom out">−</button>
-      <a class="medallion-btn" id="envoyMailBtn" href="mailto:sasha.guriev.ca@gmail.com" title="Send Envoy (Email Sasha)" aria-label="Email Sasha Guriev">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 7L2 7"/></svg>
-      </a>
-    </div>
-    <button class="endturn-btn" id="cycleProvinceBtn" type="button" title="Fly to the next province along the World's Edge Mountains">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2h12v4l-4 6 4 6v4H6v-4l4-6-4-6V2z"/></svg>
-      <span>Next Province</span>
-    </button>
-  </aside>
-
-  <!-- =================== GREAT BOOK OF WORKS (FULL INDEX MODAL) =================== -->
-  <div class="ledger-modal" id="ledgerModal" role="dialog" aria-modal="true" aria-labelledby="ledgerTitle" aria-hidden="true">
-    <div class="ledger-dialog">
-      <div class="ledger-header">
-        <div>
-          <div class="ledger-header__eyebrow">The Great Book of Karaz Ankor</div>
-          <h2 class="ledger-header__title" id="ledgerTitle">All Provinces, Holds &amp; Shipped Works</h2>
-        </div>
-        <button class="sh-btn" id="ledgerCloseBtn" type="button">Close Ledger ✕</button>
-      </div>
-      <div class="ledger-content" id="ledgerContent"></div>
+  <!-- =================== BOOK OF WORKS (plain reader) =================== -->
+  <div class="book" id="book" role="dialog" aria-modal="true" aria-labelledby="bookTitle" aria-hidden="true">
+    <div class="book__frame">
+      <nav class="book__toc" id="bookToc" aria-label="Book contents"></nav>
+      <article class="book__page" id="bookPage" tabindex="-1"></article>
+      <button class="book__close" id="bookCloseBtn" type="button">Close ✕</button>
     </div>
   </div>
 
-  <!-- Three.js (with built-in 3D Canvas fallback in app.js if offline) -->
+  <!-- Three.js (app.js has a 2D fallback if it fails to load) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="data.js"></script>
   <script src="app.js"></script>

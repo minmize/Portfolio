@@ -29,14 +29,11 @@ window.PORTFOLIO_DATA = {
     email: "sasha.guriev.ca@gmail.com",
     github: "https://github.com/minmize",
     tagline:
-      "Native Android apps, quantitative attention models, and real-time 3D computer-vision pipelines — forged end to end across the World's Edge Mountains."
+      "Native Android apps, quantitative attention models, and real-time 3D computer-vision pipelines — forged end to end across the World's Edge Mountains.",
+    // Short line shown under the name in the top banner
+    siteDescription:
+      "A campaign map of my work. Each province is a discipline, each hold a project — open a hold to see what was built inside."
   },
-
-  hudStats: [
-    { label: "Shipped Systems", value: "5", delta: "+100% E2E", icon: "coin" },
-    { label: "Provinces Held", value: "3", delta: "7 Holds", icon: "hold" },
-    { label: "Offline Readiness", value: "100%", delta: "Untainted", icon: "rune" }
-  ],
 
   provinces: [
     /* ========================================================================
@@ -57,6 +54,7 @@ window.PORTFOLIO_DATA = {
       summary:
         "The central stronghold corridor of the World's Edge Mountains where Thorgrim Grudgebearer holds court. Houses three shipped software applications spanning on-device Android neural network training, real-time 3D pose coaching, and zero-dependency specification tooling.",
       center: { x: 0, z: -7 },
+      labelAt: { x: -8, z: 12.5 },   // where the big province lettering sits on the world map
       camera: { pos: { x: -10, y: 46, z: 40 }, lookAt: { x: 1, y: 5, z: -8 } },
       border: [
         [-36, -24], [-10, -27], [16, -24], [36, -12],
@@ -276,6 +274,7 @@ window.PORTFOLIO_DATA = {
       summary:
         "Stretching south across the molten magma fissures of Karag Dron to Vala-Azrilungol — Karak Eight Peaks, Queen of the Silver Depths. Dedicated to quantitative market forecasting, multi-horizon attention models, and calibrated historical trading drills.",
       center: { x: -12, z: 41 },
+      labelAt: { x: -15, z: 47 },
       camera: { pos: { x: -19, y: 48, z: 98 }, lookAt: { x: -8, y: 4, z: 48 } },
       border: [
         [-34, 18], [16, 21], [30, 38], [24, 74],
@@ -425,6 +424,7 @@ window.PORTFOLIO_DATA = {
       summary:
         "The northern watchtowers of the Karaz Ankor rising toward Karak Ungor (Red Eye Mountain) and Karak Kadrin. Holds the Great Book of Engineering Craft, full technical arsenal across languages and ML frameworks, and direct envoy channels.",
       center: { x: 15, z: -47 },
+      labelAt: { x: -2, z: -28.5 },
       camera: { pos: { x: -2, y: 47, z: -5 }, lookAt: { x: 12, y: 6, z: -50 } },
       border: [
         [-22, -74], [28, -76], [40, -54], [32, -30],
@@ -543,11 +543,23 @@ window.PORTFOLIO_DATA = {
     }
   ],
 
-  /* Scenic Warhammer landmarks rendered subtly on the 3D mountain range for lore immersion */
+  /* Scenery around the holds (not clickable). type:
+   *   "tower" | "ruin" | "camp"  → small 3D site + label
+   *   "label" | "water"          → map lettering only
+   *   "region"                   → large faint region name at the edge of the fog */
   landmarks: [
-    { name: "Varenka Hills", coords: { x: -45, z: 7 }, note: "Western Foothills" },
-    { name: "Mount Gunbad", coords: { x: 32, z: -26 }, note: "Rib Peaks Brightstone Mine" },
-    { name: "Black Crag", coords: { x: -27, z: 47 }, note: "Death Pass Gorge" }
+    { name: "Varenka Hills", coords: { x: -50, z: 8 }, type: "label" },
+    { name: "Black Water", coords: { x: -33, z: -30 }, type: "water" },
+    { name: "Karak Varn", coords: { x: -23, z: -35 }, type: "ruin" },
+    { name: "Mount Gunbad", coords: { x: 33, z: -22 }, type: "tower" },
+    { name: "Grom Peak", coords: { x: 44, z: -4 }, type: "camp" },
+    { name: "Black Crag", coords: { x: -28, z: 50 }, type: "tower" },
+    { name: "Iron Rock", coords: { x: 15, z: 47 }, type: "camp" },
+    { name: "Blood River", coords: { x: -66, z: 31 }, type: "water" },
+    { name: "Mad Dog Pass", coords: { x: 12, z: 80 }, type: "label" },
+    { name: "Stirland", coords: { x: -70, z: -40 }, type: "region" },
+    { name: "Ostermark", coords: { x: -52, z: -80 }, type: "region" },
+    { name: "The Dark Lands", coords: { x: 54, z: 24 }, type: "region" }
   ],
 
   /* Underway / mountain road waypoints connecting the holds from Karak Ungor down to Karak Eight Peaks */

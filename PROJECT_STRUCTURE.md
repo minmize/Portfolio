@@ -7,46 +7,57 @@
 
 ## Application Overview
 
-An interactive 3D personal portfolio for **Sasha Guriev (`@minmize`)**, modeled after the
-**World's Edge Mountains** campaign map in **Total War: Warhammer III** — stretching from
-**Karak Ungor** in the frozen north, through **The Silver Road** (**Karaz-a-Karak**, **The Pillars
-of Grungni**, **Mount Squighorn** — where Thorgrim Grudgebearer starts), across the volcanic
-magma fissures of **Karag Dron / Death Pass**, down to **Karak Eight Peaks** in the south.
+An interactive 3D portfolio for **Sasha Guriev (`@minmize`)** styled after the **Total War:
+Warhammer III** campaign map, set in the **World's Edge Mountains** — from **Karak Ungor** and
+**Peak Pass** in the north, through **The Silver Road** (Thorgrim's start: Karaz-a-Karak, The
+Pillars of Grungni, Mount Squighorn), across the magma veins of **Death Pass / Karag Dron**, down
+to **Karak Eight Peaks**.
 
-### Three-Tier Campaign Interaction Model
-1. **Zoomed-Out Strategic View (`data-tier="strategic"`) — Portfolio Categories as Provinces**
-   - Each province along the World's Edge Mountains represents a top-level portfolio domain:
-     - **The Silver Road** → **App Coding & Software** (*Karaz-a-Karak*, *The Pillars of Grungni*, *Mount Squighorn*)
-     - **Death Pass & Eight Peaks** → **Algorithmic Trading & Finance** (*Karak Eight Peaks*, *Karag Dron*)
-     - **Karak Ungor & Peak Pass** → **About, Arsenal & Contact** (*Karak Ungor*, *Karak Kadrin*)
-   - Glowing 3D province borders trace the mountain valleys; hovering displays a Total War
-     stone-and-brass province tooltip and highlights the region on the top-right parchment minimap.
-2. **Zoomed-In Province View (`data-tier="province"`) — Subsections / Projects as Cities**
-   - Clicking a province banner, 3D province territory, or minimap polygon smoothly flies the 3D
-     camera into that mountain valley.
-   - Cities expand into Total War parchment-and-shield settlement nameplates (`NeuralNetworkBuilder`,
-     `Movement Correction`, `GameSpecBuilder`, `Stock Predictor`, `MarketMind`, etc.).
-3. **Settlement Construction Panel (`data-tier="settlement"`) — Detailed Construction Options**
-   - Clicking a city frames its 3D Dwarfen stronghold and slides up the bottom **Settlement
-     Construction Panel**.
-   - Each city features tailored **Construction Options** (building slots with Dwarfen icons,
-     tiers, and technical cost/turn badges) describing every facet of the project in detail
-     (architecture, pipeline mechanics, building-effect highlights, unlocked tech stack, and
-     repository/contact links).
+### Three-tier interaction
+1. **World map (`data-tier="strategic"`)** — each province is a portfolio discipline, shown as big
+   TW-style map lettering (lore name + category in script). Hovering a province lights its border
+   and territory **red**; holds show as small heraldic shields.
+2. **Province (`data-tier="province"`)** — clicking lettering, the terrain, or the minimap flies the
+   camera into the province; holds expand into parchment nameplates (one project each). Other
+   provinces dim.
+3. **Settlement (`data-tier="settlement"`)** — clicking a hold opens:
+   - a compact **construction bar** at the bottom (province ribbon, hold tabs, city plaque and
+     one building slot per construction option), and
+   - a **building info panel** on the left with the selected construction's full description,
+     effects, tech used, and links.
+   The camera frames the hold in the open space above the bar and right of the info panel.
 
-### Offline-First Rendering
-- Uses **Three.js** (`WebGLRenderer`) for sculpted ridged-multifractal alpine terrain, snowlines,
-  glowing Death Pass magma rifts, instanced pine forests, 3D Dwarfen strongholds, valley mist,
-  and draped 3D province borders.
-- Includes a built-in **software 3D Canvas perspective fallback** in `app.js` if WebGL or the
-  Three.js CDN is unavailable offline.
+Back navigation: the single red **Return** pill under the name plaque, `Esc`, scrolling out, or
+clicking empty land.
 
-### Running Locally
-Zero build step — works directly on GitHub Pages or any static server:
+### HUD (deliberately minimal)
+- Top-left: **Book of Works** — a plain reader (parchment page + contents sidebar) containing every
+  province, project and construction as text. It never navigates the map.
+- Top-centre: name plaque with a one-line description (`identity.siteDescription`).
+- Top-right: parchment minimap with fog edge and a red camera reticle.
+- No zoom/turn/toggle buttons: scroll zooms, drag pans, right-drag/Shift-drag orbits, WASD/arrows pan.
+  Borders, roads and landmarks are always on.
+
+### World rendering (`app.js`, Three.js r128)
+- Procedural ridged terrain (smooth shaded, vertex-coloured: meadows, forests, rock, ochre Badlands,
+  snow only on high peaks), sun shadows.
+- Rivers (Black Water lake, Blood River, two western rivers) carved below a water plane; roads painted
+  along `underwayRoutes` + extra roads; animated magma-vein ribbons in Death Pass.
+- Instanced pine forests and rocks; 3D Dwarf holds with forge smoke; minor sites (towers, ruins,
+  camps) from `landmarks`.
+- Province borders as draped glowing ribbons (province colour → red when hovered/active).
+- **Fog of war**: land outside the explored ellipse (`WORLD`) is greyed, covered by three drifting
+  shader cloud layers, and blends into grey distance fog — no hard map edge.
+- 2D canvas fallback if WebGL/three.js is unavailable.
+- Deep links: `#province=<id>`, `#hold=<id>`, `#book`.
+
+### Typography
+Grenze Gotisch (name, book titles) · Grenze (UI/headings) · Alegreya (body) — Google Fonts.
+
+### Running locally
 ```bash
 python3 -m http.server 4317   # then open http://localhost:4317
 ```
-`.claude/launch.json` (`"portfolio"`) is pre-configured for `:4317`.
 
 ---
 
@@ -54,12 +65,12 @@ python3 -m http.server 4317   # then open http://localhost:4317
 
 ```
 Portfolio/
-├── index.html              # Semantic HTML shell, Total War HUD chrome & modal containers
-├── styles.css              # Dwarfen slate, brass, royal blue & parchment UI design system
-├── data.js                 # Pure portfolio configuration: provinces → cities → constructionOptions
-├── app.js                  # Three.js 3D World's Edge terrain, camera rig, minimap & HUD logic
-├── og-image.svg            # 1200×630 World's Edge Mountains Open Graph preview image
-├── PROJECT_STRUCTURE.md    # Living architecture & editing guide (this file)
+├── index.html              # HTML shell: veil, map stage, HUD, settlement panels, Book of Works
+├── styles.css              # TW:WH3-style bronze/gold/crimson UI + parchment reader
+├── data.js                 # All content: provinces → cities → constructionOptions, landmarks, roads
+├── app.js                  # 3D terrain/world, camera, markers, minimap, settlement UI, book
+├── og-image.svg            # 1200×630 share image
+├── PROJECT_STRUCTURE.md    # This file
 └── .claude/launch.json     # Local static preview server config (:4317)
 ```
 
@@ -67,7 +78,14 @@ Portfolio/
 
 ## Editing Content (`data.js`)
 
-All portfolio content lives in `window.PORTFOLIO_DATA` inside `data.js`:
-- **Add or edit a category (Province):** Add/edit an object in `PORTFOLIO_DATA.provinces` (ready-made commented templates for **Research Papers** at *Rib Peaks* and **Instagram & Media** at *Eastern Badlands* are included at the bottom of `data.js`).
-- **Add or edit a subsection/project (City):** Add an entry to a province's `cities` array with `coords: { x, z }`, `holdName`, `title`, `tier`, and `tagline`.
-- **Add or edit detailed descriptions (Construction Options):** Add entries to a city's `constructionOptions` array (`topic`, `buildingName`, `slotType`, `tier`, `icon`, `cost`, `turns`, `description`, `effects`, `unlocks`).
+- **Province (category):** entry in `provinces` — `category`, `loreName`, `color`/`accent`, `center`
+  (camera focus), `labelAt` (where the map lettering sits; keep it clear of holds), `border` polygon.
+  Commented templates for *Research Papers* and *Instagram & Media* are at the bottom.
+- **Hold (project):** entry in a province's `cities` — `coords {x,z}`, `holdName`, `title`, `tier`,
+  `tagline`, `stack`, `repoUrl`.
+- **Construction (detail):** entry in a city's `constructionOptions` — `topic`, `buildingName`,
+  `slotType`, `tier`, `icon` (key in `ICONS` in app.js), `cost`, `turns`, `description`, `effects`,
+  `unlocks`, optional `links`.
+- **Scenery:** `landmarks` (`type`: tower | ruin | camp | label | water | region) and `underwayRoutes`
+  (painted as roads).
+- **Banner text:** `identity.name` and `identity.siteDescription`.
