@@ -79,7 +79,7 @@
     var dx = (x - WORLD.cx) / WORLD.rx, dz = (z - WORLD.cz) / WORLD.rz;
     return Math.sqrt(dx * dx + dz * dz);
   }
-  var WATER_Y = 1.4, LAVA_Y = 1.62;
+  var WATER_Y = 1.4;
 
   function catmull(pts, spacing, closed) {
     var out = [], n = pts.length, segs = closed ? n : n - 1;
@@ -169,13 +169,15 @@
   function terrainHeight(x, z) {
     var sx = spineCenterX(z), dx = x - sx;
     var massif = Math.exp(-(dx * dx) / (dx < 0 ? 1150 : 920));
-    var ridge = ridgedFbm(x * 0.048 + 11.3, z * 0.048 - 7.1, 4);
-    var detail = ridgedFbm(x * 0.13 - 4.2, z * 0.13 + 9.4, 3);
+    var ridgeRaw = ridgedFbm(x * 0.048 + 11.3, z * 0.048 - 7.1, 4);
+    var ridge = Math.pow(ridgeRaw, 1.32);
+    var detail = ridgedFbm(x * 0.135 - 4.2, z * 0.135 + 9.4, 3);
+    var crag = ridgedFbm(x * 0.27 + 6.7, z * 0.27 - 3.8, 2);
     var hills = fbm(x * 0.035 + 3.1, z * 0.035 + 5.7, 3);
 
-    var h = 2.1 + hills * 3.2 + massif * (4.5 + ridge * 17.5 + detail * 3.6);
-    h += massif * Math.max(0, (-z - 22) / 58) * 4.2 * ridge;          // taller northern peaks
-    if (dx > 28) h += smoothstep(28, 60, dx) * hills * 5;               // rough Dark Lands uplands
+    var h = 2.0 + hills * 3.1 + massif * (4.2 + ridge * 18.4 + detail * 4.1 + (0.3 + ridge) * crag * 1.9);
+    h += massif * Math.max(0, (-z - 22) / 58) * 4.4 * ridge;          // taller northern peaks
+    if (dx > 28) h += smoothstep(28, 60, dx) * (hills * 4.4 + detail * 1.4); // rough Dark Lands uplands
 
     // The Silver Road valley: Karaz-a-Karak → Mount Squighorn
     if (x > -26 && x < 25) {
@@ -183,18 +185,18 @@
       if (dSr < 8.5) { var cut = 1 - dSr / 8.5; h = h * (1 - 0.36 * cut * cut) + 1.8 * cut; }
     }
 
-    // Ring of eight peaks around Karak Eight Peaks
+    // Ring of eight jagged peaks around Karak Eight Peaks
     var k8x = -5, k8z = 59;
     if (Math.hypot(x - k8x, z - k8z) < 20) {
       for (var k = 0; k < 8; k++) {
         var ang = k * (Math.PI / 4) + 0.38;
         var px = k8x + Math.cos(ang) * 11.2, pz = k8z + Math.sin(ang) * 10.6;
         var dp = Math.hypot(x - px, z - pz);
-        if (dp < 6.4) { var pk = 1 - dp / 6.4; h += (Math.sin(ang) > 0.55 ? 6.8 : 11.8) * pk * pk * (0.75 + 0.35 * detail); }
+        if (dp < 6.4) { var pk = 1 - dp / 6.4; h += (Math.sin(ang) > 0.55 ? 7.0 : 12.2) * pk * pk * (0.65 + 0.5 * detail); }
       }
     }
 
-    // Hold terraces + a snowy crag behind each hold
+    // Hold terraces + a craggy peak behind each hold
     for (var i = 0; i < ALL_CITIES.length; i++) {
       var c = ALL_CITIES[i], dc = Math.hypot(x - c.x, z - c.z);
       if (dc < 6.8) {
@@ -202,7 +204,7 @@
         h = h * (1 - sm * 0.72) + (c.city.isCapital ? 7.4 : 6.4) * sm * 0.72;
       }
       var db = Math.hypot((x - c.x) * 0.75, z - (c.z - 8.2));
-      if (db < 8.5) { var tb = 1 - db / 8.5; h += (c.city.isCapital ? 8.8 : 6.4) * tb * tb * (0.7 + 0.4 * ridge); }
+      if (db < 8.8) { var tb = 1 - db / 8.8; h += (c.city.isCapital ? 9.2 : 6.8) * tb * tb * (0.52 + 0.55 * ridge + 0.28 * detail); }
     }
 
     h = Math.max(1.85, h);
@@ -220,63 +222,67 @@
     }
 
     var lava = lavaFactor(x, z);
-    if (lava > 0) h = Math.max(1.9, h - lava * 3.2);                     // shallow magma trench
+    if (lava > 0) h = Math.max(1.85, h - lava * 3.5);                    // volcanic magma gorge
     return h;
   }
 
   function slopeAt(x, z) {
-    var e = 0.6;
+    var e = 0.55;
     return Math.hypot(terrainHeight(x + e, z) - terrainHeight(x - e, z), terrainHeight(x, z + e) - terrainHeight(x, z - e)) / (2 * e);
   }
 
+  // Farmland mask: flat, low, western Old World land (the patchwork is drawn per-pixel in the terrain shader)
+  function farmMask(x, z, h, slope) {
+    var dx = x - spineCenterX(z);
+    var west = smoothstep(-22, -34, dx);
+    if (west <= 0 || h < 2.05) return 0;
+    return west * smoothstep(7.5, 4.6, h) * smoothstep(0.42, 0.2, slope) *
+      smoothstep(0.38, 0.52, fbm(x * 0.028 - 7, z * 0.028 + 3, 2)) * smoothstep(1.05, 0.85, fowDist(x, z));
+  }
+
+  // Base ground colour (sRGB). Rock exposure, snow, farmland and fine detail are added in the terrain shader.
   function terrainColor(x, z, h, slope) {
     var lava = lavaFactor(x, z);
     var n = fbm(x * 0.11 + 2.2, z * 0.11 - 3.4, 2);
-    var n2 = valueNoise(x * 0.7, z * 0.7);
-    var sx = spineCenterX(z);
+    var nL = fbm(x * 0.022 + 9.1, z * 0.022 - 4.4, 3);
+    var dx = x - spineCenterX(z);
+    var east = smoothstep(10, 30, dx), south = smoothstep(45, 72, z), north = smoothstep(-42, -78, z);
+    var volc = Math.exp(-((x + 6) * (x + 6) / 680 + (z - 33) * (z - 33) / 340));
 
-    // granite
-    var r = 0.34 + n * 0.10, g = 0.32 + n * 0.09, b = 0.30 + n * 0.08;
+    // mountain rock: cold weathered slate-granite, warming only in the far southern Badlands
+    var r = 0.29 + n * 0.08, g = 0.30 + n * 0.08, b = 0.32 + n * 0.08;
+    r = mix(r, 0.41, south * 0.55); g = mix(g, 0.35, south * 0.55); b = mix(b, 0.29, south * 0.55);
 
-    // meadow / forest floor on gentle lower slopes
-    var grass = smoothstep(1.05, 0.45, slope) * smoothstep(11.5, 5.5, h);
-    var gr = 0.24 + n * 0.08, gg = 0.33 + n * 0.09, gb = 0.16 + n * 0.05;
-    if (x > sx + 10) { gr = 0.33 + n * 0.07; gg = 0.30 + n * 0.06; gb = 0.21 + n * 0.04; }   // drier eastern slopes
-    var south = smoothstep(14, 42, z);                                                         // Badlands ochre
-    gr = mix(gr, 0.45 + n * 0.08, south); gg = mix(gg, 0.35 + n * 0.06, south); gb = mix(gb, 0.22 + n * 0.04, south);
-    r = mix(r, gr, grass); g = mix(g, gg, grass); b = mix(b, gb, grass);
+    // ground cover on gentler slopes below the tree line
+    var cover = smoothstep(0.96, 0.38, slope) * smoothstep(13.2, 6.8, h) * (1 - volc * 0.72);
+    var cr = mix(0.27, 0.20, nL), cg = mix(0.32, 0.25, nL), cb = mix(0.18, 0.14, nL);   // Old World grass & pine moss
+    cr = mix(cr, 0.22, north); cg = mix(cg, 0.27, north); cb = mix(cb, 0.22, north);   // colder north
+    cr = mix(cr, 0.26, east);  cg = mix(cg, 0.24, east);  cb = mix(cb, 0.23, east);    // Dark Lands ash-scrub
+    cr = mix(cr, 0.43, south); cg = mix(cg, 0.36, south); cb = mix(cb, 0.27, south);   // Badlands ochre scrub
+    var alp = smoothstep(6.8, 12.2, h) * 0.68;                                          // alpine lichen & scree
+    cr = mix(cr, 0.31, alp); cg = mix(cg, 0.31, alp); cb = mix(cb, 0.28, alp);
+    r = mix(r, cr, cover); g = mix(g, cg, cover); b = mix(b, cb, cover);
 
-    // cliffs
-    if (slope > 0.9) { var cl = Math.min(1, (slope - 0.9) / 1.3); r *= 1 - cl * 0.28; g *= 1 - cl * 0.27; b *= 1 - cl * 0.24; }
+    // volcanic scorched basalt & ash across Death Pass / Karag Dron
+    if (volc > 0.02) {
+      var vAsh = clamp01(volc * (0.75 + 0.4 * n));
+      r = mix(r, 0.16 + n * 0.05, vAsh); g = mix(g, 0.15 + n * 0.04, vAsh); b = mix(b, 0.15 + n * 0.04, vAsh);
+    }
 
-    // shores
-    if (h < 2.25) { var bank = smoothstep(2.25, 1.45, h) * 0.75; r = mix(r, 0.40, bank); g = mix(g, 0.36, bank); b = mix(b, 0.27, bank); }
+    // dark basalt wastes out in the Dark Lands
+    var bas = east * smoothstep(0.42, 0.64, nL) * 0.78;
+    r = mix(r, 0.18, bas); g = mix(g, 0.17, bas); b = mix(b, 0.17, bas);
 
-    // roads
+    if (h < 2.25) { var bank = smoothstep(2.25, 1.45, h) * 0.75; r = mix(r, 0.30, bank); g = mix(g, 0.29, bank); b = mix(b, 0.24, bank); }
+
     var rd = roadDist(x, z);
-    if (rd < 0.95) { var rt = smoothstep(0.95, 0.3, rd) * 0.85; r = mix(r, 0.50, rt); g = mix(g, 0.41, rt); b = mix(b, 0.29, rt); }
+    if (rd < 0.9) { var rt = smoothstep(0.9, 0.3, rd) * 0.78; r = mix(r, 0.40, rt); g = mix(g, 0.36, rt); b = mix(b, 0.30, rt); }
 
-    // ash fields around the magma
-    if (lava > 0) { var ash = Math.min(1, lava * 3); r = mix(r, 0.17, ash); g = mix(g, 0.13, ash); b = mix(b, 0.12, ash); }
+    if (lava > 0) { var ash = Math.min(1, lava * 3.2); r = mix(r, 0.11, ash); g = mix(g, 0.09, ash); b = mix(b, 0.09, ash); }
+    if (lava > 0.52) { var lc = smoothstep(0.52, 0.88, lava); r = mix(r, 0.62, lc); g = mix(g, 0.15, lc); b = mix(b, 0.04, lc); }
 
-    // snow only on the high peaks (lower in the frozen north)
-    var snowLine = 16.5 + Math.max(-3.5, Math.min(3.6, z * 0.055)) - n * 2.2;
-    if (h > snowLine && lava < 0.05) {
-      var sn = smoothstep(0, 3.6, h - snowLine) * Math.max(0.2, 1 - Math.max(0, slope - 1.1) * 0.55);
-      r = mix(r, 0.88 + n * 0.07, sn); g = mix(g, 0.90 + n * 0.06, sn); b = mix(b, 0.95 + n * 0.04, sn);
-    }
-
-    if (lava > 0.55) { var lc = smoothstep(0.55, 0.9, lava); r = mix(r, 0.6, lc); g = mix(g, 0.15, lc); b = mix(b, 0.04, lc); }
-
-    var v = 0.94 + n2 * 0.12; r *= v; g *= v; b *= v;
-
-    // fog of war: unexplored land turns grey
-    var fw = smoothstep(0.8, 1.06, fowDist(x, z));
-    if (fw > 0) {
-      var lum = r * 0.3 + g * 0.59 + b * 0.11, grey = 0.4 + lum * 0.42;
-      r = mix(r, grey, fw); g = mix(g, grey + 0.01, fw); b = mix(b, grey + 0.03, fw);
-    }
-    return [r, g, b];
+    var v = 0.94 + valueNoise(x * 0.7, z * 0.7) * 0.12;
+    return [r * v, g * v, b * v];
   }
 
   function pointInPoly(px, pz, poly) {
@@ -298,7 +304,7 @@
   };
 
   function strategicView() {
-    return { x: 0, y: 5, z: -2, yaw: -0.17, pitch: 1.0, dist: isCompact() ? 225 : 195 };
+    return { x: -2, y: 5, z: -9, yaw: -0.18, pitch: 0.96, dist: isCompact() ? 240 : 212 };
   }
   var sv = strategicView();
   var camRig = {
@@ -329,7 +335,7 @@
   /* ===================== DOM ===================== */
   var $ = function (id) { return document.getElementById(id); };
   var stageEl = $("map-stage"), canvasEl = $("webgl-canvas"), markerLayer = $("marker-layer");
-  var tooltipEl = $("twTooltip"), returnBtn = $("returnBtn"), minimapSvg = $("minimap-svg"), minimapLabel = $("minimapLabel");
+  var tooltipEl = $("twTooltip"), returnBtn = $("returnBtn");
   var bookEl = $("book"), bookToc = $("bookToc"), bookPage = $("bookPage");
   var buildingInfo = $("buildingInfo");
 
@@ -387,7 +393,7 @@
         frag.appendChild(btn);
         markers.cities.push({
           el: btn, city: city, prov: prov, anchor: "bottom",
-          x: city.coords.x, y: terrainHeight(city.coords.x, city.coords.z) + (city.isCapital ? 7.6 : 6.2), z: city.coords.z
+          x: city.coords.x, y: terrainHeight(city.coords.x, city.coords.z) + (city.isCapital ? 11.4 : 9.4), z: city.coords.z
         });
       });
     });
@@ -442,63 +448,57 @@
   }
   function hideTooltip() { tooltipEl.classList.remove("is-visible"); }
 
-  /* ===================== MINIMAP ===================== */
-  var minimapReticle = null;
-  function buildMinimap() {
-    var s = '<defs><radialGradient id="mmFog" cx="50%" cy="50%" r="50%">' +
-      '<stop offset="62%" stop-color="#9a9b98" stop-opacity="0"/><stop offset="100%" stop-color="#8d9091" stop-opacity="0.95"/></radialGradient></defs>';
-
-    // mountain spine
-    var spine = [];
-    for (var z = -92; z <= 92; z += 8) spine.push(spineCenterX(z).toFixed(1) + "," + z);
-    s += '<polyline points="' + spine.join(" ") + '" fill="none" stroke="rgba(70,50,25,0.28)" stroke-width="20" stroke-linecap="round"/>';
-    s += '<polyline points="' + spine.join(" ") + '" fill="none" stroke="rgba(60,40,18,0.5)" stroke-width="2" stroke-dasharray="3 3"/>';
-
-    RIVERS.forEach(function (rv) {
-      s += '<polyline points="' + rv.pts.map(function (p) { return p[0].toFixed(1) + "," + p[1].toFixed(1); }).join(" ") + '" fill="none" stroke="#4f7488" stroke-width="' + (rv.w * 0.9).toFixed(1) + '" stroke-linecap="round"/>';
+  /* ===================== RIGHT RAIL ===================== */
+  function buildRail() {
+    var g = $("railProvinces"), html = "";
+    DATA.provinces.forEach(function (p, i) {
+      html += '<button type="button" class="rail-medal rail-medal--prov" data-rail-prov="' + p.id + '" style="--prov-color:' + p.color + '" aria-label="' + esc(p.category) + ' — ' + esc(p.loreName) + '">' +
+        "<span>" + ROMAN[i] + '</span><span class="rail-medal__badge">' + p.cities.length + "</span></button>";
     });
-    LAKES.forEach(function (l) { s += '<ellipse cx="' + l.x + '" cy="' + l.z + '" rx="' + l.rx + '" ry="' + l.rz + '" fill="#4f7488"/>'; });
-
-    DATA.provinces.forEach(function (prov) {
-      var pts = prov.border.map(function (p) { return p[0] + "," + p[1]; }).join(" ");
-      s += '<polygon class="mm-prov" data-mm-prov="' + prov.id + '" points="' + pts + '" fill="' + prov.color + '"/>';
+    g.innerHTML = html;
+    Array.prototype.forEach.call(g.querySelectorAll("[data-rail-prov]"), function (b) {
+      var p = getProvince(b.getAttribute("data-rail-prov"));
+      b.addEventListener("click", function () { hideTooltip(); enterProvince(p.id); });
+      b.addEventListener("pointerenter", function (e) { setHoveredProvince(p.id); showProvinceTooltip(p, e.clientX, e.clientY); });
+      b.addEventListener("pointermove", function (e) { moveTooltip(e.clientX, e.clientY); });
+      b.addEventListener("pointerleave", function () { setHoveredProvince(null); hideTooltip(); });
     });
-
-    ROADS.forEach(function (rd) {
-      s += '<polyline points="' + rd.pts.map(function (p) { return p[0].toFixed(1) + "," + p[1].toFixed(1); }).join(" ") + '" fill="none" stroke="#3a2610" stroke-width="0.9" stroke-dasharray="2 1.6" opacity="0.75" pointer-events="none"/>';
-    });
-
-    ALL_CITIES.forEach(function (c) {
-      s += c.city.isCapital
-        ? '<rect x="' + (c.x - 2.8) + '" y="' + (c.z - 2.8) + '" width="5.6" height="5.6" fill="#f6ead0" stroke="#1e1408" stroke-width="1.1" pointer-events="none"/>'
-        : '<circle cx="' + c.x + '" cy="' + c.z + '" r="2.3" fill="#f6ead0" stroke="#1e1408" stroke-width="1" pointer-events="none"/>';
-    });
-
-    s += '<ellipse cx="' + WORLD.cx + '" cy="' + WORLD.cz + '" rx="' + (WORLD.rx * 1.25) + '" ry="' + (WORLD.rz * 1.18) + '" fill="url(#mmFog)" pointer-events="none"/>';
-    s += '<g id="mmReticle" pointer-events="none"><rect x="-14" y="-10" width="28" height="20" fill="rgba(224,71,47,0.10)" stroke="#a8231b" stroke-width="1.6"/></g>';
-
-    minimapSvg.innerHTML = s;
-    minimapReticle = $("mmReticle");
-    Array.prototype.forEach.call(minimapSvg.querySelectorAll(".mm-prov"), function (poly) {
-      poly.addEventListener("click", function (e) { e.stopPropagation(); enterProvince(poly.getAttribute("data-mm-prov")); });
-      poly.addEventListener("pointerenter", function () { setHoveredProvince(poly.getAttribute("data-mm-prov")); });
-      poly.addEventListener("pointerleave", function () { setHoveredProvince(null); });
-    });
+    $("railMail").href = "mailto:" + DATA.identity.email;
+    $("railGithub").href = DATA.identity.github;
   }
-  function updateMinimapReticle() {
-    if (!minimapReticle) return;
-    var sc = Math.max(0.5, Math.min(2.6, camRig.dist / 60));
-    minimapReticle.setAttribute("transform", "translate(" + camRig.target.x.toFixed(1) + " " + camRig.target.z.toFixed(1) + ") scale(" + sc.toFixed(2) + ")");
+
+  /* ===================== TURNS (End Turn → next hold) ===================== */
+  var turn = { n: 1, lastIdx: -1 };
+  var SEASONS = ["Spring", "Summer", "Autumn", "Winter"];
+  function cityIndex(id) {
+    for (var i = 0; i < ALL_CITIES.length; i++) if (ALL_CITIES[i].city.id === id) return i;
+    return -1;
+  }
+  function nextCityIndex() {
+    var cur = state.activeCityId ? cityIndex(state.activeCityId) : turn.lastIdx;
+    return (cur + 1) % ALL_CITIES.length;
+  }
+  function updateTurnUI() {
+    var nx = ALL_CITIES[nextCityIndex()];
+    $("endTurnNext").textContent = "Next: " + nx.city.holdName;
+    $("turnCount").textContent = String(turn.n);
+    $("bandTurn").textContent = String(turn.n);
+    $("bandSeason").textContent = SEASONS[turn.n % 4] + ", " + (2526 + Math.floor(turn.n / 4)) + " IC";
+  }
+  function endTurn() {
+    var idx = nextCityIndex();
+    turn.lastIdx = idx;
+    turn.n += 1;
+    hideTooltip();
+    openCity(ALL_CITIES[idx].city.id, 0);
   }
 
   /* ===================== NAVIGATION ===================== */
   function syncTier() {
     document.body.setAttribute("data-tier", state.tier);
 
-    Array.prototype.forEach.call(minimapSvg.querySelectorAll(".mm-prov"), function (el) {
-      var id = el.getAttribute("data-mm-prov");
-      el.classList.toggle("is-active", id === state.activeProvinceId);
-      el.classList.toggle("is-hover", id === state.hoveredProvinceId);
+    Array.prototype.forEach.call($("railProvinces").querySelectorAll("[data-rail-prov]"), function (b) {
+      b.classList.toggle("is-active", b.getAttribute("data-rail-prov") === state.activeProvinceId);
     });
 
     markers.cities.forEach(function (m) {
@@ -507,21 +507,22 @@
       m.el.classList.toggle("is-selected", state.tier === "settlement" && m.city.id === state.activeCityId);
     });
 
-    var prov = getProvince(state.activeProvinceId);
+    var prov = getProvince(state.activeProvinceId), found = findCity(state.activeCityId), loc;
     if (state.tier === "strategic") {
       returnBtn.hidden = true;
-      minimapLabel.textContent = "World's Edge";
+      loc = "World's Edge Mountains";
     } else if (state.tier === "province") {
       returnBtn.hidden = false;
       returnBtn.textContent = "‹ Return to the World Map";
-      minimapLabel.textContent = prov ? prov.loreName : "Province";
+      loc = prov ? prov.loreName + " — " + prov.category : "Province";
     } else {
-      var found = findCity(state.activeCityId);
       returnBtn.hidden = false;
       returnBtn.textContent = "‹ Back to " + (prov ? prov.loreName : "Province");
-      minimapLabel.textContent = found ? found.city.holdName : "Hold";
+      loc = found ? found.city.holdName + " — " + found.city.title : "Hold";
     }
+    $("bandLocation").textContent = loc;
 
+    updateTurnUI();
     updateWorldHighlights();
   }
 
@@ -554,7 +555,7 @@
 
     // Frame the hold in the open space above the construction bar and right of the info panel
     var c = found.city.coords, h = terrainHeight(c.x, c.z), compact = isCompact();
-    setGoal(c.x - (compact ? 0 : 6.5), h + 1, c.z + (compact ? 10 : 4), -0.11, 0.62, compact ? 52 : 38);
+    setGoal(c.x - (compact ? 0 : 6.5), h + 3, c.z + (compact ? 10 : 4.5), -0.11, 0.6, compact ? 54 : 40);
 
     renderSettlement(found.province, found.city);
     syncTier();
@@ -745,7 +746,7 @@
   /* ===================== THREE.JS WORLD ===================== */
   var hasThree = typeof window.THREE !== "undefined";
   var renderer = null, scene = null, camera = null, terrainMesh = null;
-  var terrainColorAttr = null, baseColors = null, vertProv = null;
+  var extraAttr = null, vertProv = null;
   var borderMeshes = {}, holdRings = {}, holdHits = [];
   var cloudMats = [], lavaMats = [], lavaLight = null, smoke = [];
   var lastTintKey = "";
@@ -753,44 +754,41 @@
   function setHoveredProvince(pid) {
     if (state.hoveredProvinceId === pid) return;
     state.hoveredProvinceId = pid;
-    Array.prototype.forEach.call(minimapSvg.querySelectorAll(".mm-prov"), function (el) {
-      el.classList.toggle("is-hover", el.getAttribute("data-mm-prov") === pid);
-    });
     updateWorldHighlights();
   }
 
-  var RED_CORE = 0xff5a3c, RED_GLOW = 0xc0281c;
+  var RED_CORE = 0xff5a3c, RED_GLOW = 0xc0281c, redCore = null, redGlow = null;
   function updateWorldHighlights() {
     if (!hasThree || !scene) return;
+    if (!redCore) { redCore = L(RED_CORE); redGlow = L(RED_GLOW); }
 
     DATA.provinces.forEach(function (prov) {
       var b = borderMeshes[prov.id];
       if (!b) return;
       var hov = prov.id === state.hoveredProvinceId, act = prov.id === state.activeProvinceId;
-      b.core.material.color.set(hov || act ? RED_CORE : (prov.accent || prov.color));
-      b.core.material.opacity = hov ? 1 : act ? 0.95 : 0.75;
-      b.glow.material.color.set(hov || act ? RED_GLOW : prov.color);
-      b.glow.material.opacity = hov ? 0.8 : act ? 0.55 : 0.32;
+      b.core.material.color.copy(hov || act ? redCore : b.cCore);
+      b.core.material.opacity = hov ? 1 : act ? 0.9 : 0.62;
+      b.glow.material.color.copy(hov || act ? redGlow : b.cGlow);
+      b.glow.material.opacity = hov ? 0.6 : act ? 0.42 : 0.18;
     });
 
     Object.keys(holdRings).forEach(function (cid) {
       holdRings[cid].visible = state.tier === "settlement" && state.activeCityId === cid;
     });
 
-    // Terrain tint: red wash on the hovered province, dim the land outside the open province
+    // Terrain tint (shader attribute): red wash on hover, dim land outside the open province
     var hovIdx = provinceIndex(state.hoveredProvinceId), actIdx = provinceIndex(state.activeProvinceId);
     var focus = state.tier !== "strategic";
     var key = hovIdx + "|" + actIdx + "|" + focus;
-    if (key === lastTintKey || !terrainColorAttr) return;
+    if (key === lastTintKey || !extraAttr) return;
     lastTintKey = key;
-    var arr = terrainColorAttr.array, n = vertProv.length;
+    var arr = extraAttr.array, n = vertProv.length;
     for (var i = 0; i < n; i++) {
-      var r = baseColors[i * 3], g = baseColors[i * 3 + 1], b2 = baseColors[i * 3 + 2], p = vertProv[i];
-      if (p >= 0 && p === hovIdx && p !== actIdx) { r = mix(r, 0.78, 0.2); g = mix(g, 0.14, 0.2); b2 = mix(b2, 0.1, 0.2); }
-      if (focus && p !== actIdx) { r *= 0.74; g *= 0.74; b2 *= 0.76; }
-      arr[i * 3] = r; arr[i * 3 + 1] = g; arr[i * 3 + 2] = b2;
+      var p = vertProv[i];
+      arr[i * 4] = (p >= 0 && p === hovIdx && p !== actIdx) ? 1 : 0;
+      arr[i * 4 + 1] = (focus && p !== actIdx) ? 1 : 0;
     }
-    terrainColorAttr.needsUpdate = true;
+    extraAttr.needsUpdate = true;
   }
 
   // Tileable value-noise canvas (used for clouds and lava)
@@ -827,8 +825,55 @@
     t.wrapS = t.wrapT = THREE.RepeatWrapping;
     return t;
   }
-  var _noiseTex = null;
+  var _noiseTex = null, _rockTex = null;
   function sharedNoise() { return _noiseTex || (_noiseTex = makeCloudTexture()); }
+
+  // Crisp 3-channel tileable rock heightmap: R = ridged alpine crags, G = fine fracture grain, B = broad drift fbm
+  function makeRockTexture() {
+    var size = 256, c = document.createElement("canvas");
+    c.width = c.height = size;
+    var ctx = c.getContext("2d"), img = ctx.createImageData(size, size), d = img.data;
+    function ph(ix, iy, p, s) { ix = ((ix % p) + p) % p; iy = ((iy % p) + p) % p; return hash2(ix + s, iy - s * 0.73); }
+    function pn(x, y, p, s) {
+      var ix = Math.floor(x), iy = Math.floor(y), fx = x - ix, fy = y - iy;
+      var ux = fx * fx * (3 - 2 * fx), uy = fy * fy * (3 - 2 * fy);
+      var a = ph(ix, iy, p, s), b = ph(ix + 1, iy, p, s), cc = ph(ix, iy + 1, p, s), dd = ph(ix + 1, iy + 1, p, s);
+      return a + (b - a) * ux + (cc - a) * uy + (a - b - cc + dd) * ux * uy;
+    }
+    for (var y = 0; y < size; y++) {
+      var v = y / size;
+      for (var x = 0; x < size; x++) {
+        var u = x / size;
+        var rSum = 0, rAmp = 0.52, rF = 7, rNorm = 0, w = 1;
+        for (var o = 0; o < 5; o++) {
+          var n = 1 - Math.abs(pn(u * rF, v * rF, rF, 31 + o * 7) * 2 - 1);
+          n = n * n * w;
+          w = clamp01(n * 1.9);
+          rSum += n * rAmp; rNorm += rAmp; rAmp *= 0.5; rF *= 2;
+        }
+        var gSum = 0, gAmp = 0.5, gF = 16, gNorm = 0;
+        for (var o2 = 0; o2 < 4; o2++) {
+          var g = 1 - Math.abs(pn(u * gF, v * gF, gF, 83 + o2 * 11) * 2 - 1);
+          gSum += g * gAmp; gNorm += gAmp; gAmp *= 0.5; gF *= 2;
+        }
+        var bSum = 0, bAmp = 0.5, bF = 5, bNorm = 0;
+        for (var o3 = 0; o3 < 3; o3++) {
+          bSum += pn(u * bF, v * bF, bF, 53) * bAmp; bNorm += bAmp; bAmp *= 0.5; bF *= 2;
+        }
+        var idx = (y * size + x) * 4;
+        d[idx] = Math.round(clamp01(rSum / rNorm) * 255);
+        d[idx + 1] = Math.round(clamp01(gSum / gNorm) * 255);
+        d[idx + 2] = Math.round(clamp01(bSum / bNorm) * 255);
+        d[idx + 3] = 255;
+      }
+    }
+    ctx.putImageData(img, 0, 0);
+    var t = new THREE.CanvasTexture(c);
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    if (renderer && renderer.capabilities) t.anisotropy = Math.min(4, renderer.capabilities.getMaxAnisotropy());
+    return t;
+  }
+  function sharedRock() { return _rockTex || (_rockTex = makeRockTexture()); }
 
   function gradientTexture(soft) {
     var c = document.createElement("canvas");
@@ -865,6 +910,8 @@
     return g;
   }
 
+  function L(hex) { return new THREE.Color(hex).convertSRGBToLinear(); }
+
   function initThree() {
     if (!hasThree) return false;
     try {
@@ -874,18 +921,22 @@
     var compact = isCompact();
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     renderer.setSize(window.innerWidth, window.innerHeight);
-    var FOG = 0x8f9497;
-    renderer.setClearColor(FOG, 1);
+    // Physically based colour pipeline: linear lighting, filmic tone mapping, sRGB output
+    renderer.outputEncoding = THREE.sRGBEncoding;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.0;
+    renderer.setClearColor(0x8e959b, 1);
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
     scene = new THREE.Scene();
-    scene.fog = new THREE.Fog(FOG, 150, 420);
+    scene.fog = new THREE.Fog(L(0x9ba3aa), 150, 420);
     camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 1, 900);
 
-    scene.add(new THREE.HemisphereLight(0xd6e2f0, 0x3a2c20, 0.7));
-    var sun = new THREE.DirectionalLight(0xfff0d6, 1.12);
-    sun.position.set(-80, 120, 55);
+    // Crisp alpine sky + angled daylight sun for chiseled mountain relief
+    scene.add(new THREE.HemisphereLight(L(0xcbd8e8), L(0x3a3733), 0.88));
+    var sun = new THREE.DirectionalLight(L(0xfff3e2), 2.38);
+    sun.position.set(-98, 78, 52);
     sun.castShadow = true;
     sun.shadow.mapSize.set(compact ? 1024 : 2048, compact ? 1024 : 2048);
     var sc = sun.shadow.camera;
@@ -894,10 +945,10 @@
     sun.shadow.bias = -0.0006;
     sun.shadow.normalBias = 0.06;
     scene.add(sun);
-    var rim = new THREE.DirectionalLight(0x86a8d4, 0.32);
-    rim.position.set(70, 50, -80);
-    scene.add(rim);
-    lavaLight = new THREE.PointLight(0xff5a14, 2.2, 60, 1.6);
+    var fill = new THREE.DirectionalLight(L(0x9ab4d8), 0.56);
+    fill.position.set(72, 52, -82);
+    scene.add(fill);
+    lavaLight = new THREE.PointLight(L(0xff5a14), 3.0, 64, 1.5);
     lavaLight.position.set(-6, 9, 32);
     scene.add(lavaLight);
 
@@ -905,6 +956,7 @@
     buildWaterAndLava();
     buildForest();
     buildRocks();
+    buildVillages();
     buildBorders();
     DATA.provinces.forEach(function (p) { p.cities.forEach(function (c) { buildHold(c, p); }); });
     (DATA.landmarks || []).forEach(buildMinorSite);
@@ -912,35 +964,177 @@
     return true;
   }
 
+  /* ---------- height / slope / farmland grid (fast lookups after the terrain is built) ---------- */
+  var GRID = null;
+  function gridSample(arr, x, z) {
+    var gx = (x + GRID.TW / 2) / GRID.dx, gz = (z - 2 + GRID.TD / 2) / GRID.dz;
+    var ix = Math.floor(gx), iz = Math.floor(gz);
+    if (ix < 0 || iz < 0 || ix >= GRID.SX || iz >= GRID.SZ) return 0;
+    var fx = gx - ix, fz = gz - iz, c = GRID.cols, i = iz * c + ix;
+    return (arr[i] * (1 - fx) + arr[i + 1] * fx) * (1 - fz) + (arr[i + c] * (1 - fx) + arr[i + c + 1] * fx) * fz;
+  }
+  function gH(x, z) { return GRID ? gridSample(GRID.h, x, z) : terrainHeight(x, z); }
+  function gS(x, z) { return GRID ? gridSample(GRID.s, x, z) : slopeAt(x, z); }
+  function gF(x, z) { return GRID ? gridSample(GRID.f, x, z) : 0; }
+
+  // Analytic C^2 quintic noise & smooth ridge crest so dFdx/dFdy bump normals have zero 8-bit texel blocks
+  var TERRAIN_PARS = [
+    "uniform sampler2D uRock;",
+    "varying vec4 vExtra;",
+    "varying vec3 vWPos;",
+    "varying vec3 vWNrm;",
+    "float qHash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123); }",
+    "float qNoise(vec2 p) {",
+    "  vec2 i = floor(p), f = fract(p);",
+    "  vec2 u = f * f * f * (f * (f * 6.0 - 15.0) + 10.0);",
+    "  return mix(mix(qHash(i), qHash(i + vec2(1.0, 0.0)), u.x), mix(qHash(i + vec2(0.0, 1.0)), qHash(i + vec2(1.0, 1.0)), u.x), u.y);",
+    "}",
+    "float qRidge(vec2 p) {",
+    "  float n = qNoise(p) * 2.0 - 1.0;",
+    "  float r = 1.0 - sqrt(n * n + 0.006);",
+    "  return r * r;",
+    "}"
+  ].join("\n");
+
+  // Per-pixel terrain detail: chiseled slate-granite cliffs, volcanic Death Pass basalt,
+  // broken craggy alpine snowpack, Old World field patchwork, fog-of-war greying, and bump relief.
+  var TERRAIN_FRAG = [
+    "float bumpH = 0.0; float snowAmt = 0.0;",
+    "{",
+    "  vec3 nrm = normalize(vWNrm);",
+    "  float fw = fwidth(vWPos.x) + fwidth(vWPos.z);",
+    "  float medW = 1.0 - smoothstep(0.32, 0.75, fw);",
+    "  float fineW = 1.0 - smoothstep(0.12, 0.30, fw);",
+    "  vec3 t1 = texture2D(uRock, vWPos.xz * 0.032).rgb;",
+    "  vec3 t2 = texture2D(uRock, vWPos.xz * 0.115 + vec2(0.37, 0.19)).rgb;",
+    "  vec3 t3 = texture2D(uRock, vWPos.xz * 0.42 + vec2(0.71, 0.53)).rgb;",
+    "  float fault = qRidge(vec2(vWPos.x * 0.34 + vWPos.z * 0.27, vWPos.y * 0.58));",
+    "  float strata = 0.5 + 0.5 * sin(vWPos.y * 2.6 + t1.b * 4.2 + fault * 2.2);",
+    "  vec3 col = diffuseColor.rgb;",
+    "  float hedgeBump = 0.0;",
+    "  if (vExtra.z > 0.01) {",
+    "    vec2 fp = mat2(0.8776, 0.4794, -0.4794, 0.8776) * vWPos.xz;",
+    "    vec2 fsz = vec2(5.2, 3.4);",
+    "    vec2 cell = floor(fp / fsz);",
+    "    vec2 fr = fract(fp / fsz);",
+    "    float hs = fract(sin(dot(cell, vec2(127.1, 311.7))) * 43758.5453);",
+    "    vec3 field = hs < 0.26 ? vec3(0.50, 0.44, 0.27) : (hs < 0.50 ? vec3(0.33, 0.38, 0.21) : (hs < 0.74 ? vec3(0.39, 0.32, 0.23) : vec3(0.27, 0.33, 0.18)));",
+    "    float furrow = sin(fp.x * 7.5 + hs * 6.0);",
+    "    field = pow(field, vec3(2.2)) * (0.91 + 0.09 * furrow);",
+    "    float ed = min(min(fr.x, 1.0 - fr.x) * fsz.x, min(fr.y, 1.0 - fr.y) * fsz.y);",
+    "    float hedge = 1.0 - smoothstep(0.12, 0.34, ed);",
+    "    field = mix(field, vec3(0.018, 0.030, 0.012), hedge * 0.88);",
+    "    hedgeBump = (hedge * 0.14 + furrow * 0.02 * fineW) * vExtra.z;",
+    "    col = mix(col, field, vExtra.z);",
+    "  }",
+    "  float volc = exp(-((vWPos.x + 6.0) * (vWPos.x + 6.0) / 720.0 + (vWPos.z - 33.0) * (vWPos.z - 33.0) / 360.0));",
+    "  float steep = 1.0 - smoothstep(0.45, 0.86, nrm.y + (t2.b - 0.5) * 0.16);",
+    "  float outcrop = smoothstep(8.2, 14.5, vWPos.y) * smoothstep(0.46, 0.78, t2.r) * 0.72;",
+    "  float rockMask = clamp(max(steep, outcrop) * (1.0 - vExtra.z), 0.0, 1.0);",
+    "  float ridgeMix = clamp(t2.r * 0.44 + fault * 0.36 + strata * 0.20, 0.0, 1.0);",
+    "  vec3 granite = pow(mix(vec3(0.18, 0.19, 0.21), vec3(0.47, 0.48, 0.48), ridgeMix), vec3(2.2));",
+    "  vec3 basalt  = pow(mix(vec3(0.11, 0.10, 0.10), vec3(0.26, 0.23, 0.22), ridgeMix), vec3(2.2));",
+    "  vec3 rock = mix(granite, basalt, clamp(volc * 1.15, 0.0, 1.0));",
+    "  rock *= 0.84 + 0.30 * t3.g;",
+    "  rock = mix(rock, col, 0.16);",
+    "  col = mix(col, rock, rockMask * 0.92);",
+    "  float snowLine = 13.6 + clamp(vWPos.z * 0.055, -3.2, 3.8) + volc * 5.4 - (t1.b - 0.5) * 4.2;",
+    "  float ledge = smoothstep(0.50, 0.85, nrm.y + (t2.b - 0.5) * 0.26 - (t2.r - 0.5) * 0.22);",
+    "  float rockPoke = smoothstep(0.58, 0.85, t2.r * 0.60 + fault * 0.40) * (1.0 - smoothstep(22.0, 28.0, vWPos.y) * 0.45);",
+    "  float sn = smoothstep(snowLine, snowLine + 2.8, vWPos.y) * ledge * (1.0 - rockPoke * 0.80);",
+    "  sn = smoothstep(0.18, 0.68, sn);",
+    "  snowAmt = sn;",
+    "  vec3 snowCol = mix(vec3(0.46, 0.52, 0.60), vec3(0.77, 0.80, 0.84), 0.45 + 0.55 * (t2.b * 0.5 + t3.g * 0.5));",
+    "  col = mix(col, snowCol, sn);",
+    "  float grain = t1.b * 0.38 + t2.g * 0.36 + t3.g * 0.26;",
+    "  col *= mix(0.78 + 0.42 * grain, 0.91 + 0.16 * grain, sn);",
+    "  float lum = dot(col, vec3(0.2126, 0.7152, 0.0722));",
+    "  col = mix(col, vec3(lum * 0.55 + 0.12), vExtra.w);",
+    "  col = mix(col, vec3(0.5, 0.025, 0.015), vExtra.x * 0.24);",
+    "  col *= 1.0 - vExtra.y * 0.32;",
+    "  diffuseColor.rgb = col;",
+    "  float rMacro = qRidge(vWPos.xz * 0.20 + vec2(3.1, -1.7));",
+    "  float rMed   = qRidge(vWPos.xz * 0.52 + vec2(-5.4, 8.2)) * medW;",
+    "  float rFine  = qNoise(vWPos.xz * 1.45 + vec2(2.3, 4.9)) * fineW;",
+    "  float cragRelief = rMacro * 0.48 + rMed * 0.26 + fault * 0.22 * medW + strata * 0.09 * medW + (rFine - 0.5) * 0.10;",
+    "  bumpH = cragRelief * (0.20 + rockMask * 0.88) * (1.0 - sn * 0.72) * (1.0 - vExtra.z * 0.85) + sn * qNoise(vWPos.xz * 0.28) * 0.14 + hedgeBump;",
+    "}"
+  ].join("\n");
+
+  var TERRAIN_BUMP = [
+    "{",
+    "  vec3 q0 = dFdx(-vViewPosition.xyz);",
+    "  vec3 q1 = dFdy(-vViewPosition.xyz);",
+    "  vec3 st1 = cross(q1, normal);",
+    "  vec3 st2 = cross(normal, q0);",
+    "  float det = dot(q0, st1);",
+    "  if (abs(det) > 1e-7) {",
+    "    vec3 grad = sign(det) * (dFdx(bumpH) * st1 + dFdy(bumpH) * st2);",
+    "    normal = normalize(abs(det) * normal - grad);",
+    "  }",
+    "}"
+  ].join("\n");
+
   function buildTerrain() {
-    var TW = 300, TD = 340, SX = 250, SZ = 290;
+    var TW = 300, TD = 340, SX = 340, SZ = 380;
     var geo = new THREE.PlaneGeometry(TW, TD, SX, SZ);
     geo.rotateX(-Math.PI / 2);
     geo.translate(0, 0, 2);
-    var pos = geo.attributes.position, count = pos.count, cols = SX + 1;
-    var heights = new Float32Array(count);
-    for (var i = 0; i < count; i++) { heights[i] = terrainHeight(pos.getX(i), pos.getZ(i)); pos.setY(i, heights[i]); }
+    var pos = geo.attributes.position, count = pos.count, cols = SX + 1, dx = TW / SX, dz = TD / SZ;
+    var heights = new Float32Array(count), slopes = new Float32Array(count), farm = new Float32Array(count);
 
-    var dx = TW / SX, dz = TD / SZ;
-    baseColors = new Float32Array(count * 3);
-    vertProv = new Int8Array(count);
+    for (var i = 0; i < count; i++) { heights[i] = terrainHeight(pos.getX(i), pos.getZ(i)); pos.setY(i, heights[i]); }
     for (var j = 0; j < count; j++) {
       var ix = j % cols, iz = (j - ix) / cols;
       var hL = heights[ix > 0 ? j - 1 : j], hR = heights[ix < SX ? j + 1 : j];
       var hU = heights[iz > 0 ? j - cols : j], hD = heights[iz < SZ ? j + cols : j];
-      var slope = Math.hypot((hR - hL) / (dx * (ix > 0 && ix < SX ? 2 : 1)), (hD - hU) / (dz * (iz > 0 && iz < SZ ? 2 : 1)));
-      var x = pos.getX(j), z = pos.getZ(j);
-      var rgb = terrainColor(x, z, heights[j], slope);
-      baseColors[j * 3] = rgb[0]; baseColors[j * 3 + 1] = rgb[1]; baseColors[j * 3 + 2] = rgb[2];
+      slopes[j] = Math.hypot((hR - hL) / (dx * (ix > 0 && ix < SX ? 2 : 1)), (hD - hU) / (dz * (iz > 0 && iz < SZ ? 2 : 1)));
+    }
+    GRID = { h: heights, s: slopes, f: farm, TW: TW, TD: TD, SX: SX, SZ: SZ, cols: cols, dx: dx, dz: dz };
+
+    var colors = new Float32Array(count * 3), extra = new Float32Array(count * 4);
+    var OFF = [[3, 0], [-3, 0], [0, 3], [0, -3], [2, 2], [-2, 2], [2, -2], [-2, -2]];
+    vertProv = new Int8Array(count);
+    for (var k = 0; k < count; k++) {
+      var kx = k % cols, kz = (k - kx) / cols, x = pos.getX(k), z = pos.getZ(k), h = heights[k];
+      // ambient occlusion from local concavity: valleys darken, ridges catch a little light
+      var sum = 0;
+      for (var o = 0; o < 8; o++) {
+        var nx = Math.min(SX, Math.max(0, kx + OFF[o][0])), nz = Math.min(SZ, Math.max(0, kz + OFF[o][1]));
+        sum += heights[nz * cols + nx];
+      }
+      var cav = sum / 8 - h;
+      var ao = 1 - clamp01(cav * 0.075) * 0.48 + clamp01(-cav * 0.05) * 0.12;
+      var rgb = terrainColor(x, z, h, slopes[k]);
+      colors[k * 3] = Math.pow(clamp01(rgb[0] * ao), 2.2);
+      colors[k * 3 + 1] = Math.pow(clamp01(rgb[1] * ao), 2.2);
+      colors[k * 3 + 2] = Math.pow(clamp01(rgb[2] * ao), 2.2);
+      farm[k] = farmMask(x, z, h, slopes[k]);
+      extra[k * 4 + 2] = farm[k];
+      extra[k * 4 + 3] = smoothstep(0.8, 1.06, fowDist(x, z));
       var pi = -1;
       for (var p = 0; p < DATA.provinces.length; p++) if (pointInPoly(x, z, DATA.provinces[p].border)) { pi = p; break; }
-      vertProv[j] = pi;
+      vertProv[k] = pi;
     }
-    terrainColorAttr = new THREE.BufferAttribute(new Float32Array(baseColors), 3);
-    geo.setAttribute("color", terrainColorAttr);
+    geo.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+    extraAttr = new THREE.BufferAttribute(extra, 4);
+    geo.setAttribute("aExtra", extraAttr);
     geo.computeVertexNormals();
 
-    terrainMesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.93, metalness: 0 }));
+    var mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95, metalness: 0 });
+    mat.extensions = { derivatives: true };
+    mat.onBeforeCompile = function (sh) {
+      sh.uniforms.uRock = { value: sharedRock() };
+      sh.vertexShader = sh.vertexShader
+        .replace("#include <common>", "#include <common>\nattribute vec4 aExtra;\nvarying vec4 vExtra;\nvarying vec3 vWPos;\nvarying vec3 vWNrm;")
+        .replace("#include <begin_vertex>", "#include <begin_vertex>\nvExtra = aExtra;\nvWPos = (modelMatrix * vec4(transformed, 1.0)).xyz;\nvWNrm = normalize(mat3(modelMatrix) * objectNormal);");
+      sh.fragmentShader = sh.fragmentShader
+        .replace("#include <common>", "#include <common>\n" + TERRAIN_PARS)
+        .replace("#include <color_fragment>", "#include <color_fragment>\n" + TERRAIN_FRAG)
+        .replace("#include <roughnessmap_fragment>", "#include <roughnessmap_fragment>\nroughnessFactor = mix(roughnessFactor, 0.76, snowAmt);")
+        .replace("#include <normal_fragment_maps>", "#include <normal_fragment_maps>\n" + TERRAIN_BUMP);
+    };
+    terrainMesh = new THREE.Mesh(geo, mat);
     terrainMesh.receiveShadow = true;
     terrainMesh.castShadow = true;
     scene.add(terrainMesh);
@@ -949,7 +1143,7 @@
   function buildWaterAndLava() {
     var wg = new THREE.PlaneGeometry(300, 340);
     wg.rotateX(-Math.PI / 2);
-    var water = new THREE.Mesh(wg, new THREE.MeshStandardMaterial({ color: 0x2c4c5e, roughness: 0.2, metalness: 0.35, transparent: true, opacity: 0.92 }));
+    var water = new THREE.Mesh(wg, new THREE.MeshStandardMaterial({ color: L(0x2c434f), roughness: 0.16, metalness: 0, transparent: true, opacity: 0.9 }));
     water.position.set(0, WATER_Y, 2);
     water.receiveShadow = true;
     scene.add(water);
@@ -969,14 +1163,14 @@
           "  float n = texture2D(uNoise, vec2(vUv.x * uLen * 0.06 + uTime * 0.025, vUv.y * 0.4 - uTime * 0.012)).r;",
           "  float core = smoothstep(0.0, 0.85, 1.0 - abs(vUv.y * 2.0 - 1.0));",
           "  float ends = smoothstep(0.0, 0.1, vUv.x) * smoothstep(1.0, 0.9, vUv.x);",
-          "  vec3 col = mix(vec3(0.5, 0.05, 0.02), vec3(1.0, 0.5, 0.1), smoothstep(0.3, 0.72, n) * core);",
-          "  col = mix(col, vec3(1.0, 0.86, 0.45), smoothstep(0.66, 0.92, n) * core * core);",
-          "  gl_FragColor = vec4(col, core * ends * (0.7 + 0.3 * n));",
+          "  vec3 col = mix(vec3(0.42, 0.05, 0.02), vec3(0.95, 0.42, 0.08), smoothstep(0.3, 0.72, n) * core);",
+          "  col = mix(col, vec3(1.0, 0.8, 0.4), smoothstep(0.68, 0.92, n) * core * core);",
+          "  gl_FragColor = vec4(col, core * ends * (0.65 + 0.3 * n));",
           "}"
         ].join("\n"),
         transparent: true, depthWrite: false, side: THREE.DoubleSide
       });
-      var vein = new THREE.Mesh(ribbonGeometry(pts, i === 0 ? 2.8 : 2.2, 0.25, false), mat);
+      var vein = new THREE.Mesh(ribbonGeometry(pts, i === 0 ? 2.4 : 1.9, 0.22, false), mat);
       vein.renderOrder = 4;
       scene.add(vein);
       lavaMats.push(mat);
@@ -988,57 +1182,100 @@
     return false;
   }
 
-  function buildForest() {
-    var rnd = seeded(41), list = [];
-    for (var i = 0; i < 12000 && list.length < 2600; i++) {
-      var x = -85 + rnd() * 170, z = -100 + rnd() * 200;
-      if (fowDist(x, z) > 1.02) continue;
-      if (fbm(x * 0.06 + 40, z * 0.06 - 12, 2) < 0.46) continue;          // clumped forests
-      var h = terrainHeight(x, z);
-      if (h < 2.0 || h > 10.5 || lavaFactor(x, z) > 0) continue;
-      if (z > 22 && rnd() < 0.82) continue;
-      if (x > spineCenterX(z) + 12 && rnd() < 0.65) continue;
-      if (slopeAt(x, z) > 0.95 || roadDist(x, z) < 1.3 || nearHold(x, z, 5)) continue;
-      list.push({ x: x, y: h, z: z, s: 0.7 + rnd() * 0.6, c: rnd() });
-    }
-    if (!list.length) return;
-
-    var lower = new THREE.ConeGeometry(0.62, 1.5, 6); lower.translate(0, 1.0, 0);
-    var upper = new THREE.ConeGeometry(0.42, 1.2, 6); upper.translate(0, 1.85, 0);
-    var mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.95, flatShading: true });
-    var a = new THREE.InstancedMesh(lower, mat, list.length), b = new THREE.InstancedMesh(upper, mat, list.length);
-    var dummy = new THREE.Object3D(), col = new THREE.Color();
-    list.forEach(function (t, k) {
-      dummy.position.set(t.x, t.y - 0.15, t.z);
-      dummy.scale.set(t.s, t.s * (0.9 + (k % 3) * 0.12), t.s);
-      dummy.rotation.y = k * 1.7;
-      dummy.updateMatrix();
-      a.setMatrixAt(k, dummy.matrix); b.setMatrixAt(k, dummy.matrix);
-      col.setRGB(0.13 + t.c * 0.06, 0.2 + t.c * 0.07, 0.12 + t.c * 0.03);
-      a.setColorAt(k, col); b.setColorAt(k, col);
+  function mergeGeos(list) {
+    var parts = list.map(function (g) { return g.index ? g.toNonIndexed() : g; });
+    var total = 0;
+    parts.forEach(function (g) { total += g.attributes.position.count; });
+    var pos = new Float32Array(total * 3), nor = new Float32Array(total * 3), o = 0;
+    parts.forEach(function (g) {
+      pos.set(g.attributes.position.array, o * 3);
+      nor.set(g.attributes.normal.array, o * 3);
+      o += g.attributes.position.count;
     });
-    [a, b].forEach(function (m) { m.castShadow = true; m.receiveShadow = true; scene.add(m); });
+    var out = new THREE.BufferGeometry();
+    out.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+    out.setAttribute("normal", new THREE.BufferAttribute(nor, 3));
+    return out;
+  }
+  function coniferGeo() {
+    var a = new THREE.ConeGeometry(0.46, 1.0, 7); a.translate(0, 0.75, 0);
+    var b = new THREE.ConeGeometry(0.36, 0.9, 7); b.translate(0, 1.3, 0);
+    var c = new THREE.ConeGeometry(0.24, 0.8, 7); c.translate(0, 1.8, 0);
+    var t = new THREE.CylinderGeometry(0.05, 0.07, 0.5, 5); t.translate(0, 0.25, 0);
+    return mergeGeos([a, b, c, t]);
+  }
+  function broadleafGeo() {
+    var crown = new THREE.IcosahedronGeometry(0.55, 0); crown.scale(1, 0.85, 1); crown.translate(0, 0.95, 0);
+    var t = new THREE.CylinderGeometry(0.05, 0.07, 0.5, 5); t.translate(0, 0.25, 0);
+    return mergeGeos([crown, t]);
+  }
+  function plant(geo, list, colorFn) {
+    if (!list.length) return;
+    var mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.95, flatShading: true });
+    var m = new THREE.InstancedMesh(geo, mat, list.length), d = new THREE.Object3D(), col = new THREE.Color();
+    list.forEach(function (t, k) {
+      d.position.set(t.x, t.y - 0.12, t.z);
+      d.scale.set(t.s, t.s * (0.85 + t.r * 0.4), t.s);
+      d.rotation.set((t.r - 0.5) * 0.12, t.c * 6.28, (t.c - 0.5) * 0.12);
+      d.updateMatrix();
+      m.setMatrixAt(k, d.matrix);
+      var c = colorFn(t);
+      col.setRGB(c[0], c[1], c[2]).convertSRGBToLinear();
+      m.setColorAt(k, col);
+    });
+    m.castShadow = true;
+    m.receiveShadow = true;
+    scene.add(m);
+  }
+
+  // Dense, clumped forests: dark conifers on the slopes, broadleaf woods in the western lowlands
+  function buildForest() {
+    var rnd = seeded(41), conifers = [], broad = [];
+    for (var i = 0; i < 90000 && conifers.length < 7500; i++) {
+      var x = -95 + rnd() * 190, z = -110 + rnd() * 220;
+      var fd = fowDist(x, z);
+      if (fd > 0.95 || (fd > 0.8 && rnd() < (fd - 0.8) / 0.15)) continue;
+      var h = gH(x, z);
+      if (h < 2.1 || h > 13.5 || lavaFactor(x, z) > 0) continue;
+      var dx = x - spineCenterX(z);
+      var east = smoothstep(14, 30, dx), south = smoothstep(30, 55, z);
+      var dens = fbm(x * 0.05 + 40, z * 0.05 - 12, 3);
+      if (dens < 0.47 + east * 0.16 + south * 0.14 + smoothstep(9, 13.5, h) * 0.1) continue;
+      if (gS(x, z) > 0.95 || gF(x, z) > 0.12) continue;
+      if (roadDist(x, z) < 1.1 || nearHold(x, z, 6)) continue;
+      var item = { x: x, y: h, z: z, s: 0.55 + rnd() * 0.45, c: rnd(), r: rnd() };
+      var lowWest = smoothstep(-18, -30, dx) * smoothstep(6.5, 4, h);
+      if (lowWest > 0.3 && rnd() < lowWest * 0.7) { if (broad.length < 2200) broad.push(item); }
+      else conifers.push(item);
+    }
+    plant(coniferGeo(), conifers, function (t) { return [0.11 + t.c * 0.05, 0.17 + t.c * 0.06, 0.13 + t.c * 0.03]; });
+    plant(broadleafGeo(), broad, function (t) { return [0.2 + t.c * 0.12, 0.25 + t.c * 0.06, 0.12 + t.c * 0.02]; });
   }
 
   function buildRocks() {
     var rnd = seeded(7), list = [];
-    for (var i = 0; i < 4000 && list.length < 340; i++) {
-      var x = -75 + rnd() * 150, z = -95 + rnd() * 190;
-      if (fowDist(x, z) > 0.98) continue;
-      var sl = slopeAt(x, z);
-      if (sl < 0.45 || sl > 1.4 || nearHold(x, z, 4.5)) continue;
-      list.push({ x: x, y: terrainHeight(x, z), z: z, s: 0.4 + rnd() * 0.9, r: rnd() * 6 });
+    for (var i = 0; i < 16000 && list.length < 520; i++) {
+      var x = -85 + rnd() * 170, z = -102 + rnd() * 204;
+      if (fowDist(x, z) > 0.94) continue;
+      var sl = gS(x, z), h = gH(x, z);
+      if (h < 2.2 || sl < 0.42 || sl > 1.55 || gF(x, z) > 0.08 || nearHold(x, z, 5.2)) continue;
+      list.push({ x: x, y: h - 0.08, z: z, s: 0.24 + rnd() * 0.52, r: rnd() * 6, c: rnd() });
     }
-    var m = new THREE.InstancedMesh(new THREE.DodecahedronGeometry(0.6, 0), new THREE.MeshStandardMaterial({ color: 0x6a645c, roughness: 0.95, flatShading: true }), list.length);
-    var dummy = new THREE.Object3D();
+    var m = new THREE.InstancedMesh(new THREE.DodecahedronGeometry(0.6, 0),
+      new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.95, flatShading: true }), list.length);
+    var d = new THREE.Object3D(), col = new THREE.Color();
     list.forEach(function (r, k) {
-      dummy.position.set(r.x, r.y + 0.1, r.z);
-      dummy.scale.set(r.s * 1.3, r.s * 0.8, r.s);
-      dummy.rotation.set(r.r, r.r * 2, 0);
-      dummy.updateMatrix();
-      m.setMatrixAt(k, dummy.matrix);
+      d.position.set(r.x, r.y, r.z);
+      d.scale.set(r.s * (1.1 + r.c * 0.5), r.s * (0.55 + r.c * 0.35), r.s);
+      d.rotation.set(r.r, r.r * 2, r.c * 3);
+      d.updateMatrix();
+      m.setMatrixAt(k, d.matrix);
+      var shade = 0.25 + r.c * 0.14;
+      col.setRGB(shade, shade * 1.01, shade * 1.05).convertSRGBToLinear();
+      m.setColorAt(k, col);
     });
     m.castShadow = true;
+    m.receiveShadow = true;
     scene.add(m);
   }
 
@@ -1046,31 +1283,38 @@
     var core = gradientTexture(false), soft = gradientTexture(true);
     DATA.provinces.forEach(function (prov) {
       var pts = catmull(prov.border, 0.7, true);
-      var glow = new THREE.Mesh(ribbonGeometry(pts, 3.2, 0.42, true), new THREE.MeshBasicMaterial({
-        map: soft, color: prov.color, transparent: true, opacity: 0.32, depthWrite: false, side: THREE.DoubleSide
+      var cCore = L(prov.accent || prov.color), cGlow = L(prov.color);
+      var glow = new THREE.Mesh(ribbonGeometry(pts, 2.6, 0.42, true), new THREE.MeshBasicMaterial({
+        map: soft, color: cGlow.clone(), transparent: true, opacity: 0.18, depthWrite: false, side: THREE.DoubleSide
       }));
-      var line = new THREE.Mesh(ribbonGeometry(pts, 0.55, 0.5, true), new THREE.MeshBasicMaterial({
-        map: core, color: prov.accent || prov.color, transparent: true, opacity: 0.75, depthWrite: false, side: THREE.DoubleSide
+      var line = new THREE.Mesh(ribbonGeometry(pts, 0.42, 0.5, true), new THREE.MeshBasicMaterial({
+        map: core, color: cCore.clone(), transparent: true, opacity: 0.62, depthWrite: false, side: THREE.DoubleSide
       }));
       glow.renderOrder = 2; line.renderOrder = 3;
       scene.add(glow); scene.add(line);
-      borderMeshes[prov.id] = { core: line, glow: glow };
+      borderMeshes[prov.id] = { core: line, glow: glow, cCore: cCore, cGlow: cGlow };
     });
   }
 
   var MATS = null;
   function mats() {
     if (MATS) return MATS;
+    function std(hex, rough) { return new THREE.MeshStandardMaterial({ color: L(hex), roughness: rough, flatShading: true }); }
     MATS = {
-      stone: new THREE.MeshStandardMaterial({ color: 0x6b655d, roughness: 0.88, flatShading: true }),
-      stoneDark: new THREE.MeshStandardMaterial({ color: 0x46413b, roughness: 0.92, flatShading: true }),
-      gold: new THREE.MeshStandardMaterial({ color: 0xd4ad63, roughness: 0.38, metalness: 0.6 }),
-      door: new THREE.MeshStandardMaterial({ color: 0x17120e, roughness: 1 }),
-      glow: new THREE.MeshBasicMaterial({ color: 0xffa94a }),
-      roof: new THREE.MeshStandardMaterial({ color: 0x6e3a24, roughness: 0.85, flatShading: true }),
-      dark: new THREE.MeshStandardMaterial({ color: 0x2e2620, roughness: 0.9, flatShading: true }),
-      tent: new THREE.MeshStandardMaterial({ color: 0x7a5e3c, roughness: 0.95, flatShading: true }),
-      fire: new THREE.MeshBasicMaterial({ color: 0xff7a24 })
+      granite: std(0x4a4b4f, 0.93),
+      stone: std(0x5f6166, 0.9),
+      stoneLight: std(0x7c7e82, 0.88),
+      slate: std(0x2b3036, 0.85),
+      iron: new THREE.MeshStandardMaterial({ color: L(0x232428), roughness: 0.62, metalness: 0.45, flatShading: true }),
+      bronze: new THREE.MeshStandardMaterial({ color: L(0x9a7743), roughness: 0.48, metalness: 0.38 }),
+      door: std(0x161413, 0.96),
+      glow: new THREE.MeshBasicMaterial({ color: L(0xff9233) }),
+      dark: std(0x252423, 0.92),
+      tent: std(0x6b5a42, 0.95),
+      fire: new THREE.MeshBasicMaterial({ color: L(0xff7a24) }),
+      plaster: std(0xb0a58e, 0.9),
+      thatch: std(0x665233, 0.95),
+      timber: std(0x3a2b1e, 0.9)
     };
     return MATS;
   }
@@ -1078,68 +1322,99 @@
   function addMesh(group, geo, mat, x, y, z) {
     var m = new THREE.Mesh(geo, mat);
     m.position.set(x, y, z);
-    m.castShadow = true; m.receiveShadow = true;
+    m.castShadow = true;
+    m.receiveShadow = true;
     group.add(m);
     return m;
   }
 
+  // A Dwarf hold carved into the mountain: battered granite bastions, iron-bound double gate, ancestor statues, braziers
   function buildHold(city, prov) {
-    var M = mats(), g = new THREE.Group(), s = city.isCapital ? 1.3 : 1.0;
+    var M = mats(), g = new THREE.Group(), s = city.isCapital ? 1.24 : 1.0;
     var cx = city.coords.x, cz = city.coords.z, cy = terrainHeight(cx, cz);
+    var B = function (w, h, d) { return new THREE.BoxGeometry(w, h, d); };
     g.position.set(cx, cy, cz);
     g.scale.set(s, s, s);
 
-    addMesh(g, new THREE.CylinderGeometry(3.4, 3.9, 1.2, 8), M.stoneDark, 0, 0.2, 0);            // terrace
-    addMesh(g, new THREE.BoxGeometry(4.2, 3.0, 1.0), M.stone, 0, 2.2, 0.9);                       // great gate
-    addMesh(g, new THREE.BoxGeometry(1.4, 2.0, 0.3), M.door, 0, 1.7, 1.45);
-    addMesh(g, new THREE.BoxGeometry(0.95, 1.45, 0.12), M.glow, 0, 1.45, 1.58);
-    addMesh(g, new THREE.BoxGeometry(4.7, 0.35, 1.25), M.gold, 0, 3.85, 0.9);                     // gilded lintel
-    [-1.85, 1.85].forEach(function (ox) {                                                          // ancestor towers
-      addMesh(g, new THREE.BoxGeometry(0.95, 3.9, 0.95), M.stone, ox, 2.55, 1.2);
-      var roof = addMesh(g, new THREE.ConeGeometry(0.78, 0.95, 4), M.gold, ox, 4.95, 1.2);
-      roof.rotation.y = Math.PI / 4;
+    addMesh(g, new THREE.CylinderGeometry(3.8, 4.5, 1.7, 8), M.granite, 0, 0, 0.35);           // carved stone terrace
+    addMesh(g, B(5.4, 0.5, 2.7), M.granite, 0, 1.05, -0.75);                                   // forecourt landing
+    for (var k = 0; k < 4; k++) addMesh(g, B(2.3, 0.15, 0.42), M.stone, 0, 0.86 + k * 0.15, 1.48 - k * 0.38);
+
+    // Main mountain-cut bastion & crenellated parapet
+    addMesh(g, B(6.2, 5.3, 2.2), M.granite, 0, 3.95, -2.45);
+    [-2.5, 2.5].forEach(function (ox) {                                                         // sloped granite buttresses
+      var but = addMesh(g, B(1.05, 5.1, 0.9), M.stone, ox, 3.7, -1.35);
+      but.rotation.x = -0.11;
     });
-    addMesh(g, new THREE.BoxGeometry(2.7, 3.6, 2.3), M.stone, 0, 3.2, -0.9);                      // keep
-    var crown = addMesh(g, new THREE.ConeGeometry(1.9, 1.3, 4), M.gold, 0, 5.65, -0.9);
-    crown.rotation.y = Math.PI / 4;
-    addMesh(g, new THREE.BoxGeometry(0.4, 1.4, 0.4), M.stoneDark, -0.95, 5.4, -1.6);              // forge chimneys
-    addMesh(g, new THREE.BoxGeometry(0.4, 1.1, 0.4), M.stoneDark, 0.95, 5.25, -1.7);
-    addMesh(g, new THREE.BoxGeometry(0.08, 2.3, 0.08), M.gold, 0, 7.4, -0.9);                     // banner
-    addMesh(g, new THREE.BoxGeometry(0.06, 0.9, 1.05), new THREE.MeshStandardMaterial({
-      color: new THREE.Color(prov.color), emissive: new THREE.Color(prov.color).multiplyScalar(0.25), roughness: 0.6
-    }), 0, 7.95, -0.35);
+    addMesh(g, B(6.6, 0.34, 2.4), M.stoneLight, 0, 6.72, -2.45);                                // cornice
+    for (var m = -2.7; m <= 2.71; m += 0.9) addMesh(g, B(0.54, 0.45, 0.42), M.stone, m, 7.1, -1.46); // merlons
+    addMesh(g, B(4.3, 1.25, 1.6), M.granite, 0, 7.45, -2.65);                                   // upper citadel tier
+    addMesh(g, B(4.5, 0.18, 1.7), M.bronze, 0, 8.15, -2.65);
 
-    var huts = city.isCapital ? 6 : 4;                                                             // outbuildings
-    for (var k = 0; k < huts; k++) {
-      var a = Math.PI * 0.15 + (k / (huts - 1)) * Math.PI * 0.7, r = 3.3;
-      var hx = Math.cos(a) * r * (k % 2 ? 1 : -1), hz = Math.sin(a) * r * 0.8 + 0.6;
-      addMesh(g, new THREE.BoxGeometry(0.9, 0.7, 0.8), M.stone, hx, 0.95, hz);
-      var hr = addMesh(g, new THREE.ConeGeometry(0.7, 0.55, 4), M.roof, hx, 1.57, hz);
+    // Recessed Dwarfen great gate: dark iron-bound double doors + bronze cross-bars + glowing forge slits
+    addMesh(g, B(2.35, 3.25, 0.55), M.door, 0, 2.88, -1.38);                                    // deep gate portal
+    [-0.48, 0.48].forEach(function (dx) { addMesh(g, B(0.88, 2.72, 0.14), M.iron, dx, 2.66, -1.16); });
+    addMesh(g, B(0.10, 2.75, 0.18), M.bronze, 0, 2.66, -1.13);                                  // central bronze astragal
+    [1.85, 2.75, 3.55].forEach(function (yy) { addMesh(g, B(1.88, 0.11, 0.17), M.bronze, 0, yy, -1.13); });
+    addMesh(g, B(1.75, 0.14, 0.12), M.glow, 0, 1.34, -1.14);                                    // warm forge threshold glow
+    [-0.52, 0.52].forEach(function (dx) { addMesh(g, B(0.14, 0.55, 0.14), M.glow, dx, 3.16, -1.12); }); // door slits
+    addMesh(g, B(2.85, 0.34, 0.58), M.bronze, 0, 4.62, -1.30);                                  // heavy rune lintel
+    addMesh(g, B(1.9, 0.55, 0.45), M.stoneLight, 0, 5.06, -1.34);                               // stepped tympanum
+    addMesh(g, B(1.1, 0.35, 0.48), M.bronze, 0, 5.45, -1.33);
+    [-1.72, 1.72].forEach(function (ox) {                                                       // flanking forge lancets
+      addMesh(g, B(0.32, 1.35, 0.16), M.door, ox, 4.15, -1.34);
+      addMesh(g, B(0.14, 1.05, 0.14), M.glow, ox, 4.15, -1.30);
+    });
+
+    [-2.65, 2.65].forEach(function (ox) {                                                       // carved ancestor statues
+      addMesh(g, B(1.05, 0.9, 1.05), M.stone, ox, 1.75, -0.82);
+      addMesh(g, new THREE.CylinderGeometry(0.38, 0.54, 2.15, 7), M.stoneLight, ox, 3.25, -0.82);
+      addMesh(g, B(0.92, 0.32, 0.55), M.stone, ox, 3.85, -0.82);                                // pauldrons
+      addMesh(g, new THREE.CylinderGeometry(0.32, 0.35, 0.48, 6), M.bronze, ox, 4.58, -0.82);   // horned/crowned helm
+      var beard = addMesh(g, new THREE.ConeGeometry(0.3, 0.82, 6), M.stoneLight, ox, 4.05, -0.54);
+      beard.rotation.x = Math.PI;
+    });
+    [-3.85, 3.85].forEach(function (ox) {                                                       // flanking octagonal watchtowers
+      addMesh(g, new THREE.CylinderGeometry(0.72, 0.86, 4.8, 8), M.stone, ox, 3.05, -1.65);
+      addMesh(g, new THREE.CylinderGeometry(0.84, 0.80, 0.36, 8), M.stoneLight, ox, 5.55, -1.65);
+      addMesh(g, new THREE.ConeGeometry(0.96, 1.25, 8), M.slate, ox, 6.32, -1.65);
+      addMesh(g, B(0.06, 2.1, 0.06), M.timber, ox, 7.6, -1.65);
+      addMesh(g, B(0.04, 1.0, 0.8), new THREE.MeshStandardMaterial({
+        color: L(prov.color), emissive: L(prov.color).multiplyScalar(0.14), roughness: 0.72
+      }), ox, 8.0, -1.20);
+    });
+    [-1.35, 1.35].forEach(function (ox) {                                                       // iron fire-braziers
+      addMesh(g, new THREE.CylinderGeometry(0.14, 0.2, 0.78, 6), M.iron, ox, 1.68, 0.25);
+      addMesh(g, new THREE.CylinderGeometry(0.28, 0.14, 0.22, 6), M.bronze, ox, 2.12, 0.25);
+      addMesh(g, new THREE.SphereGeometry(0.17, 6, 4), M.glow, ox, 2.26, 0.25);
+    });
+    var houses = [[-3.0, 1.6], [3.0, 1.6], [-2.15, 2.85], [2.15, 2.85]];
+    if (city.isCapital) houses.push([-3.55, 0.05], [3.55, 0.05]);
+    houses.forEach(function (hp) {                                                              // outbuildings with slate roofs
+      addMesh(g, B(0.98, 0.74, 0.88), M.stone, hp[0], 1.16, hp[1]);
+      var hr = addMesh(g, new THREE.ConeGeometry(0.76, 0.54, 4), M.slate, hp[0], 1.80, hp[1]);
       hr.rotation.y = Math.PI / 4;
-    }
+    });
+    addMesh(g, B(0.48, 1.45, 0.48), M.granite, 1.25, 8.4, -2.9);                                // forge chimney
 
-    // red selection ring on the terrace (shown when the hold is open)
-    var ring = new THREE.Mesh(new THREE.RingGeometry(3.0, 3.4, 40), new THREE.MeshBasicMaterial({
-      color: 0xe0472f, transparent: true, opacity: 0.85, side: THREE.DoubleSide, depthWrite: false
+    var ring = new THREE.Mesh(new THREE.RingGeometry(3.3, 3.7, 40), new THREE.MeshBasicMaterial({
+      color: L(0xe0472f), transparent: true, opacity: 0.85, side: THREE.DoubleSide, depthWrite: false
     }));
     ring.rotation.x = -Math.PI / 2;
-    ring.position.y = 0.86;
+    ring.position.y = 0.84;
     ring.visible = false;
     g.add(ring);
     holdRings[city.id] = ring;
 
-    var hit = new THREE.Mesh(new THREE.CylinderGeometry(4, 4, 8, 8), new THREE.MeshBasicMaterial({ visible: false }));
-    hit.position.y = 3;
+    var hit = new THREE.Mesh(new THREE.CylinderGeometry(4.2, 4.2, 9, 8), new THREE.MeshBasicMaterial({ visible: false }));
+    hit.position.y = 4;
     hit.userData = { cityId: city.id, provinceId: prov.id };
     g.add(hit);
     holdHits.push(hit);
-
     scene.add(g);
 
-    if (city.isCapital) {
-      for (var p = 0; p < 4; p++) {
-        smoke.push({ base: new THREE.Vector3(cx - 0.95 * s, cy + 6.3 * s, cz - 1.6 * s), phase: p / 4, sprite: null });
-      }
+    for (var p = 0; p < 4; p++) {
+      smoke.push({ base: new THREE.Vector3(cx + 1.2 * s, cy + 9.0 * s, cz - 2.8 * s), phase: p / 4, sprite: null });
     }
   }
 
@@ -1149,20 +1424,51 @@
     var x = lm.coords.x, z = lm.coords.z, g = new THREE.Group();
     g.position.set(x, terrainHeight(x, z), z);
     if (t === "tower") {
+      addMesh(g, new THREE.CylinderGeometry(1.8, 2.2, 0.8, 6), M.granite, 0, 0.3, 0);
       addMesh(g, new THREE.CylinderGeometry(0.9, 1.3, 4.2, 6), M.dark, 0, 2.1, 0);
-      addMesh(g, new THREE.ConeGeometry(1.4, 2.0, 6), M.roof, 0, 5.2, 0);
-      addMesh(g, new THREE.BoxGeometry(0.06, 1.4, 0.06), M.dark, 0, 6.8, 0);
-      addMesh(g, new THREE.CylinderGeometry(1.8, 2.2, 0.8, 6), M.stoneDark, 0, 0.3, 0);
+      addMesh(g, new THREE.ConeGeometry(1.4, 2.0, 6), M.timber, 0, 5.2, 0);
+      addMesh(g, new THREE.BoxGeometry(0.06, 1.4, 0.06), M.timber, 0, 6.8, 0);
     } else if (t === "ruin") {
+      addMesh(g, new THREE.BoxGeometry(3.4, 0.4, 2.6), M.granite, 0, 0.1, 0);
       [[-1.2, 0, 2.6], [0.4, -0.8, 1.6], [1.4, 0.6, 2.1], [-0.2, 1.2, 0.9]].forEach(function (c) {
         addMesh(g, new THREE.BoxGeometry(0.7, c[2], 0.7), M.stone, c[0], c[2] / 2, c[1]);
       });
-      addMesh(g, new THREE.BoxGeometry(3.4, 0.4, 2.6), M.stoneDark, 0, 0.1, 0);
     } else {
       [[-1, 0], [1.1, 0.4], [0, -1.1]].forEach(function (c) { addMesh(g, new THREE.ConeGeometry(0.75, 1.3, 5), M.tent, c[0], 0.65, c[1]); });
       addMesh(g, new THREE.SphereGeometry(0.28, 6, 4), M.fire, 0.1, 0.25, 0.2);
     }
     scene.add(g);
+  }
+
+  // Human villages among the fields of the western Old World foothills
+  var VILLAGE_SPOTS = [[-52, -8], [-58, 16], [-46, -46], [-66, -30], [-50, 26], [-70, 4], [-62, -58], [-44, 40], [-78, -12], [-56, -70]];
+  function buildVillages() {
+    var M = mats(), rnd = seeded(91), houses = [];
+    VILLAGE_SPOTS.forEach(function (v) {
+      if (fowDist(v[0], v[1]) > 0.95 || gH(v[0], v[1]) < 2.0 || gH(v[0], v[1]) > 8) return;
+      var n = 7 + Math.floor(rnd() * 6);
+      for (var k = 0; k < n; k++) {
+        var a = rnd() * 6.28, r = 0.6 + rnd() * 2.6, x = v[0] + Math.cos(a) * r, z = v[1] + Math.sin(a) * r;
+        var h = gH(x, z);
+        if (h < 1.95 || gS(x, z) > 0.6) continue;
+        houses.push({ x: x, y: h, z: z, rot: rnd() * 6.28, s: 0.8 + rnd() * 0.4, tall: k === 0 });
+      }
+    });
+    if (!houses.length) return;
+    var wallGeo = new THREE.BoxGeometry(0.8, 0.5, 0.55); wallGeo.translate(0, 0.25, 0);
+    var roofGeo = new THREE.ConeGeometry(0.6, 0.45, 4); roofGeo.rotateY(Math.PI / 4); roofGeo.scale(1.05, 1, 0.75); roofGeo.translate(0, 0.72, 0);
+    var walls = new THREE.InstancedMesh(wallGeo, M.plaster, houses.length);
+    var roofs = new THREE.InstancedMesh(roofGeo, M.thatch, houses.length);
+    var d = new THREE.Object3D();
+    houses.forEach(function (hs, k) {
+      d.position.set(hs.x, hs.y - 0.05, hs.z);
+      d.rotation.set(0, hs.rot, 0);
+      d.scale.set(hs.s, hs.s * (hs.tall ? 2.2 : 1), hs.s);
+      d.updateMatrix();
+      walls.setMatrixAt(k, d.matrix);
+      roofs.setMatrixAt(k, d.matrix);
+    });
+    [walls, roofs].forEach(function (m) { m.castShadow = true; m.receiveShadow = true; scene.add(m); });
   }
 
   function buildClouds() {
@@ -1290,16 +1596,20 @@
     if (drag.moved < 6 && drag.button === 0) handleClick(e.clientX, e.clientY);
   });
 
+  function zoomBy(f) {
+    camRig.goalDist *= f;
+    clampGoals();
+    if (state.tier === "province" && camRig.goalDist > 118) goStrategic();
+    else if (state.tier === "settlement" && camRig.goalDist > 72 && state.activeProvinceId) enterProvince(state.activeProvinceId);
+  }
+
   // Scroll to zoom anywhere on the map (but not inside panels / the book)
   window.addEventListener("wheel", function (e) {
     if (bookIsOpen()) return;
     var t = e.target;
-    if (t && t.closest && t.closest(".building-info, .settlement-bar, .minimap, .plaque")) return;
+    if (t && t.closest && t.closest(".building-info, .settlement-bar, .plaque, .rail, .turn-dial, .band")) return;
     e.preventDefault();
-    camRig.goalDist *= e.deltaY > 0 ? 1.11 : 0.9;
-    clampGoals();
-    if (state.tier === "province" && camRig.goalDist > 118) goStrategic();
-    else if (state.tier === "settlement" && camRig.goalDist > 90 && state.activeProvinceId) enterProvince(state.activeProvinceId);
+    zoomBy(e.deltaY > 0 ? 1.11 : 0.9);
   }, { passive: false });
 
   var raycaster = hasThree ? new THREE.Raycaster() : null;
@@ -1347,6 +1657,9 @@
 
   /* ===================== BUTTONS & KEYS ===================== */
   returnBtn.addEventListener("click", stepBack);
+  $("zoomInBtn").addEventListener("click", function () { zoomBy(0.78); });
+  $("zoomOutBtn").addEventListener("click", function () { zoomBy(1.35); });
+  $("endTurnBtn").addEventListener("click", endTurn);
   $("bookOpenBtn").addEventListener("click", openBook);
   $("bookCloseBtn").addEventListener("click", closeBook);
   bookEl.addEventListener("click", function (e) { if (e.target === bookEl) closeBook(); });
@@ -1441,13 +1754,12 @@
     placeMarkers(markers.provinces);
     placeMarkers(markers.cities);
     placeMarkers(markers.landmarks);
-    updateMinimapReticle();
     requestAnimationFrame(tick);
   }
 
   /* ===================== BOOT ===================== */
   buildMarkers();
-  buildMinimap();
+  buildRail();
   buildBook();
   syncTier();
 
